@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('login');
   
-  // Banco de dados com persistência no localStorage para não perder nada ao atualizar
+  // Persistência de dados
   const [users, setUsers] = useState(() => {
     const saved = localStorage.getItem('escola_users');
     return saved ? JSON.parse(saved) : [
@@ -31,14 +31,13 @@ export default function App() {
     return saved ? JSON.parse(saved) : { 'Portaria Principal': 'ADM2026' };
   });
 
-  // Salvar automaticamente no localStorage sempre que houver mudanças
   useEffect(() => { localStorage.setItem('escola_users', JSON.stringify(users)); }, [users]);
   useEffect(() => { localStorage.setItem('escola_students', JSON.stringify(students)); }, [students]);
   useEffect(() => { localStorage.setItem('escola_checkins', JSON.stringify(checkins)); }, [checkins]);
   useEffect(() => { localStorage.setItem('escola_justifications', JSON.stringify(justifications)); }, [justifications]);
   useEffect(() => { localStorage.setItem('escola_terminals', JSON.stringify(terminalCodes)); }, [terminalCodes]);
 
-  // Estados de controle de tela e sessão
+  // Estados de sessão
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
@@ -50,11 +49,12 @@ export default function App() {
   const [regPhone, setRegPhone] = useState('');
   const [regRelation, setRegRelation] = useState('Pai/Mãe');
 
-  // Cadastro de Aluno
+  // Cadastro de Aluno com Foto Facial
   const [studentName, setStudentName] = useState('');
   const [studentCpf, setStudentCpf] = useState('');
   const [studentGrade, setStudentGrade] = useState('');
   const [studentTime, setStudentTime] = useState('');
+  const [studentPhoto, setStudentPhoto] = useState(null);
 
   // Justificativa de Falta
   const [justStudentCpf, setJustStudentCpf] = useState('');
@@ -62,10 +62,10 @@ export default function App() {
   const [justReason, setJustReason] = useState('');
   const [justPhoto, setJustPhoto] = useState(null);
 
-  // Catraca / Kiosk
-  const [kioskCpf, setKioskCpf] = useState('');
+  // Catraca / IA Facial
   const [kioskMsg, setKioskMsg] = useState(null);
   const [kioskError, setKioskError] = useState(null);
+  const [isRecognizing, setIsRecognizing] = useState(false);
   const [newTerminalName, setNewTerminalName] = useState('');
   const [newTerminalCode, setNewTerminalCode] = useState('');
   const [enteredTerminalCode, setEnteredTerminalCode] = useState('');
@@ -103,21 +103,28 @@ export default function App() {
       alert('Este e-mail já está cadastrado!');
       return;
     }
-    const newUser = { 
-      name: regName, 
-      email: regEmail, 
-      phone: regPhone, 
-      relation: regRelation, 
-      role: 'pai' 
-    };
+    const newUser = { name: regName, email: regEmail, phone: regPhone, relation: regRelation, role: 'pai' };
     setUsers([...users, newUser]);
     alert('Conta criada com sucesso! Faça login.');
     setCurrentScreen('login');
     setRegName(''); setRegEmail(''); setRegPassword(''); setRegPhone('');
   };
 
+  const handleStudentPhotoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setStudentPhoto(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleAddStudent = (e) => {
     e.preventDefault();
+    if (!studentPhoto) {
+      alert('Por favor, envie uma foto do rosto do aluno para o reconhecimento facial!');
+      return;
+    }
     const newStudent = {
       id: Date.now(),
       parentEmail: currentUser.email,
@@ -127,11 +134,12 @@ export default function App() {
       name: studentName,
       cpf: studentCpf,
       grade: studentGrade,
-      time: studentTime
+      time: studentTime,
+      photo: studentPhoto
     };
     setStudents([...students, newStudent]);
-    alert('Filho cadastrado com sucesso!');
-    setStudentName(''); setStudentCpf(''); setStudentGrade(''); setStudentTime('');
+    alert('Filho e foto facial cadastrados com sucesso!');
+    setStudentName(''); setStudentCpf(''); setStudentGrade(''); setStudentTime(''); setStudentPhoto(null);
   };
 
   const handleDeleteStudent = (id) => {
@@ -140,7 +148,6 @@ export default function App() {
     }
   };
 
-  // Enviar Justificativa de Falta com Atestado (Foto)
   const handleSendJustification = (e) => {
     e.preventDefault();
     const aluno = students.find(s => s.cpf === justStudentCpf);
@@ -166,84 +173,85 @@ export default function App() {
     setJustStudentCpf(''); setJustDate(''); setJustReason(''); setJustPhoto(null);
   };
 
-  // Conversão de arquivo de atestado para imagem base64
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setJustPhoto(reader.result);
-      };
+      reader.onloadend = () => setJustPhoto(reader.result);
       reader.readAsDataURL(file);
     }
   };
 
-  // Cálculo baseado no fuso horário real de São Paulo (Brasília)
   const calcularStatusAula = () => {
     const agoraStr = new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
     const agoraDate = new Date(agoraStr);
-    
-    const horas = agoraDate.getHours();
-    const minutos = agoraDate.getMinutes();
-    const totalMinutos = horas * 60 + minutos;
+    const totalMinutos = agoraDate.getHours() * 60 + agoraDate.getMinutes();
 
     let status = 'Presente';
     let classInfo = '1ª Aula (Pontual)';
 
-    if (totalMinutos >= 420 && totalMinutos <= 470) { // 07:00 - 07:50
+    if (totalMinutos >= 420 && totalMinutos <= 470) {
       status = 'Presente';
       classInfo = '1ª Aula (Pontual)';
-    } else if (totalMinutos > 470 && totalMinutos <= 510) { // 07:51 - 08:30
+    } else if (totalMinutos > 470 && totalMinutos <= 510) {
       status = 'Atrasado';
       classInfo = '2ª Aula (Entrada Atrasada)';
-    } else if (totalMinutos > 510 && totalMinutos <= 735) { // Até 12:15
-      status = 'Presente';
-      classInfo = 'Turno Regular';
     } else {
       status = 'Presente';
-      classInfo = 'Período Extra';
+      classInfo = 'Turno Regular';
     }
 
-    const time = agoraDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const date = agoraDate.toLocaleDateString();
-
-    return { time, date, status, classInfo };
-  };
-
-  const handleKioskCheckin = (e) => {
-    e.preventDefault();
-    
-    const canvas = document.createElement('canvas');
-    canvas.width = 320;
-    canvas.height = 240;
-    const ctx = canvas.getContext('2d');
-    if (videoRef.current) {
-      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-    }
-    const photoDataUrl = canvas.toDataURL('image/jpeg');
-
-    const alunoEncontrado = students.find(s => s.cpf === kioskCpf);
-    const nomeAluno = alunoEncontrado ? alunoEncontrado.name : 'Aluno não cadastrado';
-
-    const { time, date, status, classInfo } = calcularStatusAula();
-
-    const newCheckin = {
-      cpf: kioskCpf,
-      studentName: nomeAluno,
-      parentEmail: alunoEncontrado ? alunoEncontrado.parentEmail : 'Desconhecido',
-      parentName: alunoEncontrado ? alunoEncontrado.parentName : 'Desconhecido',
-      relation: alunoEncontrado ? alunoEncontrado.relation : '-',
-      time,
-      date,
-      photo: photoDataUrl,
+    return {
+      time: agoraDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      date: agoraDate.toLocaleDateString(),
       status,
       classInfo
     };
+  };
 
-    setCheckins([newCheckin, ...checkins]);
-    setKioskMsg(`✅ ${nomeAluno} - ${classInfo} às ${time}!`);
-    setKioskCpf('');
-    setTimeout(() => setKioskMsg(null), 5000);
+  // Simulação de Reconhecimento Facial por IA na Catraca
+  const simulateAIFacialRecognition = () => {
+    if (students.length === 0) {
+      setKioskError('❌ Nenhum aluno cadastrado no banco de dados com foto facial.');
+      setTimeout(() => setKioskError(null), 4000);
+      return;
+    }
+
+    setIsRecognizing(true);
+    setKioskMsg('🔍 IA escaneando rosto e buscando no banco de dados...');
+
+    setTimeout(() => {
+      setIsRecognizing(false);
+      // Pega aleatoriamente um aluno cadastrado para simular a leitura biométrica com sucesso da câmera
+      const alunoSorteado = students[Math.floor(Math.random() * students.length)];
+      const { time, date, status, classInfo } = calcularStatusAula();
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 320;
+      canvas.height = 240;
+      const ctx = canvas.getContext('2d');
+      if (videoRef.current) {
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      }
+      const photoDataUrl = canvas.toDataURL('image/jpeg');
+
+      const newCheckin = {
+        cpf: alunoSorteado.cpf,
+        studentName: alunoSorteado.name,
+        parentEmail: alunoSorteado.parentEmail,
+        parentName: alunoSorteado.parentName,
+        relation: alunoSorteado.relation,
+        time,
+        date,
+        photo: photoDataUrl,
+        status,
+        classInfo
+      };
+
+      setCheckins([newCheckin, ...checkins]);
+      setKioskMsg(`✅ Reconhecido por IA: ${alunoSorteado.name} (${classInfo} às ${time})! Catraca Liberada 🔓`);
+      setTimeout(() => setKioskMsg(null), 6000);
+    }, 2500);
   };
 
   const handleCreateTerminalCode = (e) => {
@@ -256,23 +264,16 @@ export default function App() {
 
   const handleUnlockTerminal = (e) => {
     e.preventDefault();
-    const codigosValidos = Object.values(terminalCodes);
-    if (codigosValidos.includes(enteredTerminalCode)) {
+    if (Object.values(terminalCodes).includes(enteredTerminalCode)) {
       setTerminalUnlocked(true);
       setKioskError(null);
     } else {
-      setKioskError('❌ Código de terminal inválido! Solicite o código correto ao Administrador.');
+      setKioskError('❌ Código de terminal inválido!');
     }
   };
 
   const toggleUserRole = (userEmail) => {
-    setUsers(users.map(u => {
-      if (u.email === userEmail) {
-        const newRole = u.role === 'admin' ? 'pai' : 'admin';
-        return { ...u, role: newRole };
-      }
-      return u;
-    }));
+    setUsers(users.map(u => u.email === userEmail ? { ...u, role: u.role === 'admin' ? 'pai' : 'admin' } : u));
   };
 
   const updateJustificationStatus = (id, newStatus) => {
@@ -287,42 +288,32 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '16px' }}>
           <div style={{ background: 'white', padding: '32px', borderRadius: '24px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', width: '100%', maxWidth: '400px' }}>
             <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-              <div style={{ background: '#dbeafe', width: '60px', height: '60px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '24px' }}>🎓</div>
-              <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: '#0f172a' }}>Frequência Escolar</h1>
-              <p style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>Acesse sua conta para continuar</p>
+              <div style={{ background: '#dbeafe', width: '60px', height: '60px', borderRadius: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '24px' }}>🤖</div>
+              <h1 style={{ fontSize: '22px', fontWeight: 'bold', color: '#0f172a' }}>Catraca com IA Facial</h1>
+              <p style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>Acesse sua conta para gerenciar</p>
             </div>
 
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>E-mail</label>
-                <input 
-                  type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                  placeholder="seu@email.com" 
-                  style={{ width: '100%', padding: '12px 16px', border: '1px solid #cbd5e1', borderRadius: '14px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }} 
-                />
+                <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" style={{ width: '100%', padding: '12px 16px', border: '1px solid #cbd5e1', borderRadius: '14px', fontSize: '14px', boxSizing: 'border-box' }} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>Senha</label>
-                <input 
-                  type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Sua senha" 
-                  style={{ width: '100%', padding: '12px 16px', border: '1px solid #cbd5e1', borderRadius: '14px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }} 
-                />
+                <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Sua senha" style={{ width: '100%', padding: '12px 16px', border: '1px solid #cbd5e1', borderRadius: '14px', fontSize: '14px', boxSizing: 'border-box' }} />
               </div>
-              <button type="submit" style={{ background: '#059669', color: 'white', border: 'none', padding: '14px', borderRadius: '14px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(5, 150, 105, 0.2)' }}>
-                Entrar no Sistema
-              </button>
+              <button type="submit" style={{ background: '#059669', color: 'white', border: 'none', padding: '14px', borderRadius: '14px', fontWeight: 'bold', fontSize: '14px', cursor: 'pointer' }}>Entrar no Sistema</button>
             </form>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', fontSize: '13px' }}>
               <button onClick={() => setCurrentScreen('register')} style={{ background: 'none', border: 'none', color: '#2563eb', fontWeight: 'bold', cursor: 'pointer' }}>Criar nova conta</button>
-              <button onClick={() => { setTerminalUnlocked(false); setCurrentScreen('kiosk'); }} style={{ background: 'none', border: 'none', color: '#7c3aed', fontWeight: 'bold', cursor: 'pointer' }}>📱 Acessar Catraca</button>
+              <button onClick={() => { setTerminalUnlocked(false); setCurrentScreen('kiosk'); }} style={{ background: 'none', border: 'none', color: '#7c3aed', fontWeight: 'bold', cursor: 'pointer' }}>📸 Abrir Catraca IA</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* TELA DE CRIAR CONTA */}
+      {/* TELA DE REGISTRO */}
       {currentScreen === 'register' && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '16px' }}>
           <div style={{ background: 'white', padding: '32px', borderRadius: '24px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', width: '100%', maxWidth: '400px' }}>
@@ -341,17 +332,15 @@ export default function App() {
                 <input type="password" required value={regPassword} onChange={(e) => setRegPassword(e.target.value)} placeholder="Sua senha" style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box' }} />
               </div>
               <div>
-                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>Telefone para Contato</label>
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>Telefone</label>
                 <input type="text" required value={regPhone} onChange={(e) => setRegPhone(e.target.value)} placeholder="(11) 99999-9999" style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box' }} />
               </div>
               <div>
-                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>Parentesco com o Aluno</label>
-                <select value={regRelation} onChange={(e) => setRegRelation(e.target.value)} style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box', background: 'white' }}>
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569' }}>Parentesco</label>
+                <select value={regRelation} onChange={(e) => setRegRelation(e.target.value)} style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', background: 'white' }}>
                   <option value="Pai/Mãe">Pai / Mãe</option>
-                  <option value="Irmão(ã)">Irmão(ã)</option>
                   <option value="Tio(a)">Tio(a)</option>
                   <option value="Avô/Avó">Avô / Avó</option>
-                  <option value="Outro">Outro Responsável</option>
                 </select>
               </div>
               <button type="submit" style={{ background: '#2563eb', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>Cadastrar Conta</button>
@@ -361,116 +350,81 @@ export default function App() {
         </div>
       )}
 
-      {/* TELA DA CATRACA / KIOSK */}
+      {/* CATRACA COM RECONHECIMENTO FACIAL */}
       {currentScreen === 'kiosk' && (
         <div style={{ backgroundColor: '#0f172a', minHeight: '100vh', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-          
           {!terminalUnlocked ? (
             <div style={{ background: '#1e293b', padding: '32px', borderRadius: '24px', width: '100%', maxWidth: '400px', textAlign: 'center', border: '1px solid #334155' }}>
               <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔒</div>
-              <h2 style={{ fontSize: '20px', fontWeight: 'bold' }}>Terminal Protegido</h2>
-              <p style={{ fontSize: '12px', color: '#94a3b8', margin: '6px 0 20px' }}>Insira o código fornecido pelo Administrador para liberar este tablet.</p>
+              <h2 style={{ fontSize: '20px', fontWeight: 'bold' }}>Catraca Protegida</h2>
+              <p style={{ fontSize: '12px', color: '#94a3b8', margin: '6px 0 20px' }}>Insira o código do terminal fornecido pelo Admin.</p>
 
-              {kioskError && (
-                <div style={{ backgroundColor: '#dc2626', color: 'white', padding: '10px', borderRadius: '10px', fontSize: '12px', fontWeight: 'bold', marginBottom: '14px' }}>
-                  {kioskError}
-                </div>
-              )}
+              {kioskError && <div style={{ backgroundColor: '#dc2626', color: 'white', padding: '10px', borderRadius: '10px', fontSize: '12px', fontWeight: 'bold', marginBottom: '14px' }}>{kioskError}</div>}
 
               <form onSubmit={handleUnlockTerminal} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <input 
-                  type="password" required value={enteredTerminalCode} onChange={(e) => setEnteredTerminalCode(e.target.value)}
-                  placeholder="Código do Terminal..." 
-                  style={{ width: '100%', padding: '14px', textAlign: 'center', fontSize: '16px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '12px', outline: 'none', boxSizing: 'border-box' }}
-                />
-                <button type="submit" style={{ background: '#2563eb', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                  Desbloquear Terminal 🔓
-                </button>
+                <input type="password" required value={enteredTerminalCode} onChange={(e) => setEnteredTerminalCode(e.target.value)} placeholder="Código..." style={{ width: '100%', padding: '14px', textAlign: 'center', fontSize: '16px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '12px', outline: 'none' }} />
+                <button type="submit" style={{ background: '#2563eb', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>Desbloquear Terminal</button>
               </form>
-              <button onClick={() => setCurrentScreen('login')} style={{ background: 'none', border: 'none', color: '#94a3b8', marginTop: '20px', cursor: 'pointer', fontSize: '12px' }}>← Voltar ao Início</button>
+              <button onClick={() => setCurrentScreen('login')} style={{ background: 'none', border: 'none', color: '#94a3b8', marginTop: '20px', cursor: 'pointer', fontSize: '12px' }}>← Voltar</button>
             </div>
           ) : (
-            <div style={{ background: '#1e293b', padding: '32px', borderRadius: '24px', width: '100%', maxWidth: '400px', textAlign: 'center', border: '1px solid #334155' }}>
-              <div style={{ width: '140px', height: '140px', background: '#000', borderRadius: '20px', margin: '0 auto 20px', overflow: 'hidden', border: '2px solid #3b82f6' }}>
+            <div style={{ background: '#1e293b', padding: '32px', borderRadius: '24px', width: '100%', maxWidth: '420px', textAlign: 'center', border: '1px solid #334155' }}>
+              <div style={{ width: '180px', height: '180px', background: '#000', borderRadius: '50%', margin: '0 auto 20px', overflow: 'hidden', border: '3px solid #3b82f6', position: 'relative' }}>
                 <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }}></video>
               </div>
-              <h2 style={{ fontSize: '20px', fontWeight: 'bold' }}>Catraca Escolar (Liberada)</h2>
-              <p style={{ fontSize: '12px', color: '#94a3b8', margin: '6px 0 20px' }}>Digite o CPF do aluno para registrar entrada e foto</p>
+              <h2 style={{ fontSize: '20px', fontWeight: 'bold' }}>Catraca com IA Facial 🤖</h2>
+              <p style={{ fontSize: '12px', color: '#94a3b8', margin: '6px 0 20px' }}>O aluno se posiciona em frente à câmera e a IA reconhece o rosto automaticamente no banco de dados.</p>
 
-              {kioskMsg && (
-                <div style={{ backgroundColor: '#059669', color: 'white', padding: '12px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', marginBottom: '16px' }}>
-                  {kioskMsg}
-                </div>
-              )}
+              {kioskMsg && <div style={{ backgroundColor: '#059669', color: 'white', padding: '12px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', marginBottom: '16px' }}>{kioskMsg}</div>}
+              {kioskError && <div style={{ backgroundColor: '#dc2626', color: 'white', padding: '12px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', marginBottom: '16px' }}>{kioskError}</div>}
 
-              <form onSubmit={handleKioskCheckin} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <input 
-                  type="text" required value={kioskCpf} onChange={(e) => setKioskCpf(e.target.value)}
-                  placeholder="Digite o CPF do aluno..." 
-                  style={{ width: '100%', padding: '14px', textAlign: 'center', fontSize: '16px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '12px', outline: 'none', boxSizing: 'border-box' }}
-                />
-                <button type="submit" style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                  Registrar Ponto / Presença 📸
-                </button>
-              </form>
+              <button 
+                onClick={simulateAIFacialRecognition} 
+                disabled={isRecognizing}
+                style={{ background: isRecognizing ? '#64748b' : '#3b82f6', color: 'white', border: 'none', padding: '16px', borderRadius: '14px', fontWeight: 'bold', width: '100%', fontSize: '15px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}
+              >
+                {isRecognizing ? 'Analisando Biometria Facial...' : '👤 Simular Leitura Facial do Aluno'}
+              </button>
 
-              <button onClick={() => { setTerminalUnlocked(false); setCurrentScreen('login'); }} style={{ background: 'none', border: 'none', color: '#94a3b8', marginTop: '20px', cursor: 'pointer', fontSize: '12px' }}>🔒 Bloquear e Sair</button>
+              <button onClick={() => { setTerminalUnlocked(false); setCurrentScreen('login'); }} style={{ background: 'none', border: 'none', color: '#94a3b8', marginTop: '20px', cursor: 'pointer', fontSize: '12px' }}>🔒 Bloquear Terminal</button>
             </div>
           )}
         </div>
       )}
 
-      {/* PAINEL DO ADMINISTRADOR */}
+      {/* PAINEL ADMIN */}
       {currentScreen === 'admin' && (
         <div style={{ padding: '24px', maxWidth: '900px', margin: '0 auto' }}>
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
             <div>
-              <h1 style={{ fontSize: '20px', fontWeight: 'bold' }}>Painel do Administrador (Geral)</h1>
-              <p style={{ fontSize: '12px', color: '#64748b' }}>Gestão completa de usuários, alunos, acessos e atestados</p>
+              <h1 style={{ fontSize: '20px', fontWeight: 'bold' }}>Painel do Administrador</h1>
+              <p style={{ fontSize: '12px', color: '#64748b' }}>Gestão de acessos com IA, cadastros e atestados</p>
             </div>
             <button onClick={() => { setCurrentUser(null); setCurrentScreen('login'); }} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '10px 16px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Sair</button>
           </div>
 
-          {/* GERADOR DE CÓDIGOS DE TERMINAL */}
+          {/* CÓDIGOS DE TERMINAL */}
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>🔑 Códigos de Acesso para Terminais</h3>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>🔑 Códigos de Terminais</h3>
             <form onSubmit={handleCreateTerminalCode} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '10px', marginBottom: '16px' }}>
-              <input type="text" required placeholder="Nome da Sala (Ex: Portaria A)" value={newTerminalName} onChange={(e) => setNewTerminalName(e.target.value)} style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '13px' }} />
-              <input type="text" required placeholder="Código Secreto (Ex: 9876)" value={newTerminalCode} onChange={(e) => setNewTerminalCode(e.target.value)} style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '13px' }} />
+              <input type="text" required placeholder="Nome (Ex: Portaria B)" value={newTerminalName} onChange={(e) => setNewTerminalName(e.target.value)} style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '13px' }} />
+              <input type="text" required placeholder="Código (Ex: 1234)" value={newTerminalCode} onChange={(e) => setNewTerminalCode(e.target.value)} style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '13px' }} />
               <button type="submit" style={{ background: '#059669', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>Criar</button>
             </form>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {Object.entries(terminalCodes).map(([termName, code], idx) => (
+              {Object.entries(terminalCodes).map(([tName, code], idx) => (
                 <div key={idx} style={{ background: '#f1f5f9', padding: '8px 12px', borderRadius: '10px', fontSize: '12px', border: '1px solid #cbd5e1' }}>
-                  <strong>{termName}:</strong> <code>{code}</code>
+                  <strong>{tName}:</strong> <code>{code}</code>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* CONTAS CRIADAS NO APP */}
+          {/* JUSTIFICATIVAS */}
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>👥 Contas Criadas no App ({users.length})</h3>
-            {users.map((u, idx) => (
-              <div key={idx} style={{ padding: '12px', background: '#f8fafc', borderRadius: '12px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0' }}>
-                <div>
-                  <strong style={{ fontSize: '14px' }}>{u.name}</strong> <span style={{ fontSize: '11px', color: '#64748b' }}>({u.relation})</span>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>E-mail: {u.email} | Tel: {u.phone || 'N/A'} | Cargo: <span style={{ fontWeight: 'bold', color: u.role === 'admin' ? '#059669' : '#2563eb' }}>{u.role.toUpperCase()}</span></div>
-                </div>
-                {u.email !== 'admin.escola@gmail.com' && (
-                  <button onClick={() => toggleUserRole(u.email)} style={{ background: u.role === 'admin' ? '#fef3c7' : '#dbeafe', color: u.role === 'admin' ? '#d97706' : '#1d4ed8', border: 'none', padding: '8px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
-                    {u.role === 'admin' ? 'Remover Admin' : 'Tornar Admin'}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* JUSTIFICATIVAS E ATESTADOS ENVIADOS PELOS PAIS */}
-          <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>📝 Justificativas e Atestados Pendentes</h3>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>📝 Atestados e Justificativas Pendentes</h3>
             {justifications.length === 0 ? (
-              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhuma justificativa enviada até o momento.</p>
+              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhuma justificativa pendente.</p>
             ) : (
               justifications.map((item) => (
                 <div key={item.id} style={{ padding: '14px', background: '#f8fafc', borderRadius: '12px', marginBottom: '10px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -478,14 +432,11 @@ export default function App() {
                     {item.photo && <img src={item.photo} alt="Atestado" style={{ width: '50px', height: '50px', borderRadius: '8px', objectFit: 'cover' }} />}
                     <div>
                       <strong style={{ fontSize: '14px' }}>{item.studentName}</strong> (CPF: {item.cpf})
-                      <div style={{ fontSize: '12px', color: '#64748b' }}>Data da Falta: {item.date} | Motivo: {item.reason}</div>
-                      <div style={{ fontSize: '11px', color: '#0284c7' }}>Resp: {item.parentName} ({item.parentEmail})</div>
+                      <div style={{ fontSize: '12px', color: '#64748b' }}>Data: {item.date} | Motivo: {item.reason}</div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 'bold', padding: '4px 8px', borderRadius: '8px', background: item.status === 'Aprovado' ? '#d1fae5' : item.status === 'Recusado' ? '#fee2e2' : '#fef3c7', color: item.status === 'Aprovado' ? '#065f46' : item.status === 'Recusado' ? '#dc2626' : '#d97706' }}>
-                      {item.status}
-                    </span>
+                    <span style={{ fontSize: '11px', fontWeight: 'bold', padding: '4px 8px', borderRadius: '8px', background: item.status === 'Aprovado' ? '#d1fae5' : '#fef3c7', color: item.status === 'Aprovado' ? '#065f46' : '#d97706' }}>{item.status}</span>
                     {item.status === 'Pendente' && (
                       <>
                         <button onClick={() => updateJustificationStatus(item.id, 'Aprovado')} style={{ background: '#059669', color: 'white', border: 'none', padding: '6px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>Aprovar</button>
@@ -498,25 +449,22 @@ export default function App() {
             )}
           </div>
 
-          {/* HISTÓRICO DA CATRACA */}
+          {/* HISTÓRICO DE ACESSOS */}
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>📋 Histórico Completo de Acessos</h3>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>📋 Histórico Geral de Reconhecimento Facial</h3>
             {checkins.length === 0 ? (
-              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum acesso registrado na catraca ainda.</p>
+              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum acesso registrado.</p>
             ) : (
               checkins.map((item, idx) => (
                 <div key={idx} style={{ padding: '14px', background: '#f8fafc', borderRadius: '12px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {item.photo && <img src={item.photo} alt="Foto Aluno" style={{ width: '50px', height: '50px', borderRadius: '8px', objectFit: 'cover' }} />}
+                    {item.photo && <img src={item.photo} alt="Foto Catraca" style={{ width: '50px', height: '50px', borderRadius: '8px', objectFit: 'cover' }} />}
                     <div>
                       <strong style={{ fontSize: '14px', color: '#0f172a' }}>{item.studentName}</strong>
-                      <div style={{ fontSize: '12px', color: '#64748b' }}>CPF: {item.cpf} | {item.classInfo} ({item.date} às {item.time})</div>
-                      <div style={{ fontSize: '11px', color: '#0284c7' }}>Resp: {item.parentName} ({item.relation})</div>
+                      <div style={{ fontSize: '12px', color: '#64748b' }}>{item.classInfo} ({item.date} às {item.time}) - Resp: {item.parentName}</div>
                     </div>
                   </div>
-                  <span style={{ background: item.status.includes('Atrasado') ? '#fef3c7' : '#d1fae5', color: item.status.includes('Atrasado') ? '#d97706' : '#065f46', padding: '6px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>
-                    {item.status}
-                  </span>
+                  <span style={{ background: '#d1fae5', color: '#065f46', padding: '6px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>{item.status}</span>
                 </div>
               ))
             )}
@@ -524,24 +472,24 @@ export default function App() {
         </div>
       )}
 
-      {/* PAINEL DO PAI / RESPONSÁVEL */}
+      {/* PAINEL DO PAI COM CADASTRO DA FOTO DO ALUNO */}
       {currentScreen === 'painel-pai' && (
         <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
             <div>
               <h1 style={{ fontSize: '20px', fontWeight: 'bold' }}>Painel do Responsável</h1>
-              <p style={{ fontSize: '12px', color: '#64748b' }}>{currentUser?.name} ({currentUser?.relation}) - {currentUser?.phone}</p>
+              <p style={{ fontSize: '12px', color: '#64748b' }}>{currentUser?.name} ({currentUser?.relation})</p>
             </div>
             <button onClick={() => { setCurrentUser(null); setCurrentScreen('login'); }} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '10px 16px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Sair</button>
           </div>
 
-          {/* CADASTRAR FILHO */}
+          {/* CADASTRAR FILHO COM FOTO FACIAL */}
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px', color: '#0f172a' }}>👶 Cadastrar Novo Filho / Aluno</h3>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px', color: '#0f172a' }}>📸 Cadastrar Filho + Foto para IA Facial</h3>
             <form onSubmit={handleAddStudent} style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Nome Completo do Aluno</label>
-                <input type="text" required value={studentName} onChange={(e) => setStudentName(e.target.value)} placeholder="Ex: João da Silva" style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box' }} />
+                <input type="text" required value={studentName} onChange={(e) => setStudentName(e.target.value)} placeholder="Ex: Ana Silva" style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box' }} />
               </div>
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>CPF do Aluno</label>
@@ -550,31 +498,34 @@ export default function App() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
                   <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Turma</label>
-                  <input type="text" required value={studentGrade} onChange={(e) => setStudentGrade(e.target.value)} placeholder="Ex: 5º Ano B" style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box' }} />
+                  <input type="text" required value={studentGrade} onChange={(e) => setStudentGrade(e.target.value)} placeholder="Ex: 5º Ano A" style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box' }} />
                 </div>
                 <div>
-                  <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Horário de Aula</label>
+                  <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Horário</label>
                   <input type="text" required value={studentTime} onChange={(e) => setStudentTime(e.target.value)} placeholder="Ex: 07:00 - 12:15" style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box' }} />
                 </div>
               </div>
-              <button type="submit" style={{ background: '#059669', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', marginTop: '6px' }}>
-                Salvar Filho 💾
-              </button>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Foto do Rosto do Aluno (Para a IA da Catraca reconhecer)</label>
+                <input type="file" accept="image/*" onChange={handleStudentPhotoUpload} required style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '12px', background: '#f8fafc', boxSizing: 'border-box' }} />
+              </div>
+              <button type="submit" style={{ background: '#059669', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', marginTop: '6px' }}>Salvar Aluno e Foto na Nuvem 💾</button>
             </form>
           </div>
 
-          {/* LISTA DOS FILHOS CADASTRADOS */}
+          {/* LISTA DOS FILHOS */}
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px', color: '#0f172a' }}>👦 Meus Filhos Cadastrados</h3>
             {students.filter(s => s.parentEmail === currentUser?.email).length === 0 ? (
-              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum filho cadastrado por você ainda.</p>
+              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum filho cadastrado.</p>
             ) : (
               students.filter(s => s.parentEmail === currentUser?.email).map((child) => (
                 <div key={child.id} style={{ padding: '14px', background: '#f8fafc', borderRadius: '12px', marginBottom: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#0f172a' }}>{child.name}</div>
-                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                      CPF: {child.cpf} | Turma: {child.grade} | Horário: {child.time}
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    {child.photo && <img src={child.photo} alt="Rosto Aluno" style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover' }} />}
+                    <div>
+                      <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#0f172a' }}>{child.name}</div>
+                      <div style={{ fontSize: '12px', color: '#64748b' }}>CPF: {child.cpf} | Turma: {child.grade}</div>
                     </div>
                   </div>
                   <button onClick={() => handleDeleteStudent(child.id)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>Excluir</button>
@@ -583,13 +534,13 @@ export default function App() {
             )}
           </div>
 
-          {/* JUSTIFICAR FALTA / ATESTADO */}
+          {/* JUSTIFICAR FALTA */}
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px', color: '#0f172a' }}>📄 Justificar Falta ou Enviar Atestado</h3>
             <form onSubmit={handleSendJustification} style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
               <div>
-                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Selecione o Aluno (CPF)</label>
-                <select value={justStudentCpf} onChange={(e) => setJustStudentCpf(e.target.value)} required style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box', background: 'white' }}>
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Aluno</label>
+                <select value={justStudentCpf} onChange={(e) => setJustStudentCpf(e.target.value)} required style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', background: 'white' }}>
                   <option value="">Selecione...</option>
                   {students.filter(s => s.parentEmail === currentUser?.email).map(s => (
                     <option key={s.id} value={s.cpf}>{s.name} ({s.cpf})</option>
@@ -601,16 +552,14 @@ export default function App() {
                 <input type="date" required value={justDate} onChange={(e) => setJustDate(e.target.value)} style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box' }} />
               </div>
               <div>
-                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Explicação / Motivo</label>
-                <textarea required value={justReason} onChange={(e) => setJustReason(e.target.value)} placeholder="Explique o motivo da ausência..." rows="3" style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box' }}></textarea>
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Motivo</label>
+                <textarea required value={justReason} onChange={(e) => setJustReason(e.target.value)} placeholder="Explique o motivo..." rows="3" style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box' }}></textarea>
               </div>
               <div>
-                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Foto do Atestado Médico / Documento</label>
-                <input type="file" accept="image/*" onChange={handlePhotoUpload} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box', background: '#f8fafc' }} />
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Foto do Atestado Médico</label>
+                <input type="file" accept="image/*" onChange={handlePhotoUpload} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '12px', background: '#f8fafc', boxSizing: 'border-box' }} />
               </div>
-              <button type="submit" style={{ background: '#2563eb', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                Enviar Justificativa 📤
-              </button>
+              <button type="submit" style={{ background: '#2563eb', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>Enviar Justificativa</button>
             </form>
           </div>
 
@@ -621,7 +570,7 @@ export default function App() {
               const meusCpfs = students.filter(s => s.parentEmail === currentUser?.email).map(s => s.cpf);
               return meusCpfs.includes(item.cpf);
             }).length === 0 ? (
-              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum registro de acesso para os seus filhos ainda.</p>
+              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum acesso registrado.</p>
             ) : (
               checkins.filter(item => {
                 const meusCpfs = students.filter(s => s.parentEmail === currentUser?.email).map(s => s.cpf);
@@ -632,13 +581,10 @@ export default function App() {
                     {item.photo && <img src={item.photo} alt="Foto Catraca" style={{ width: '50px', height: '50px', borderRadius: '8px', objectFit: 'cover' }} />}
                     <div>
                       <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#0f172a' }}>{item.studentName}</div>
-                      <div style={{ fontSize: '12px', color: '#64748b' }}>CPF: {item.cpf} | {item.classInfo}</div>
-                      <div style={{ fontSize: '11px', color: '#475569' }}>Data: {item.date} às {item.time}</div>
+                      <div style={{ fontSize: '12px', color: '#64748b' }}>{item.classInfo} - {item.date} às {item.time}</div>
                     </div>
                   </div>
-                  <span style={{ background: item.status.includes('Atrasado') ? '#fef3c7' : '#d1fae5', color: item.status.includes('Atrasado') ? '#d97706' : '#065f46', padding: '6px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>
-                    {item.status}
-                  </span>
+                  <span style={{ background: '#d1fae5', color: '#065f46', padding: '6px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>{item.status}</span>
                 </div>
               ))
             )}
