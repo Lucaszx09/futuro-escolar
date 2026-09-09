@@ -3,42 +3,73 @@ import React, { useState, useEffect, useRef } from 'react';
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('login');
   
-  // Banco de dados simulado com contas iniciais (incluindo o admin principal)
-  const [users, setUsers] = useState([
-    { name: 'Administrador', email: 'admin.escola@gmail.com', role: 'admin', phone: '', relation: '' }
-  ]);
-  const [students, setStudents] = useState([]); // { parentEmail, parentName, parentPhone, relation, name, cpf, grade, time }
-  const [checkins, setCheckins] = useState([]); // { cpf, studentName, time, date, photo, status, classInfo }
-  
-  // Códigos de acesso para as catracas criados pelo Admin (ex: { 'PORTA-01': '1234' })
-  const [terminalCodes, setTerminalCodes] = useState({ 'Entrada Principal': 'ADM2026' });
-  const [newTerminalName, setNewTerminalName] = useState('');
-  const [newTerminalCode, setNewTerminalCode] = useState('');
-  const [enteredTerminalCode, setEnteredTerminalCode] = useState('');
-  const [terminalUnlocked, setTerminalUnlocked] = useState(false);
+  // Banco de dados com persistência no localStorage para não perder nada ao atualizar
+  const [users, setUsers] = useState(() => {
+    const saved = localStorage.getItem('escola_users');
+    return saved ? JSON.parse(saved) : [
+      { name: 'Administrador', email: 'admin.escola@gmail.com', role: 'admin', phone: '(11) 99999-9999', relation: 'Admin' }
+    ];
+  });
 
-  // Estados de inputs gerais
+  const [students, setStudents] = useState(() => {
+    const saved = localStorage.getItem('escola_students');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [checkins, setCheckins] = useState(() => {
+    const saved = localStorage.getItem('escola_checkins');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [justifications, setJustifications] = useState(() => {
+    const saved = localStorage.getItem('escola_justifications');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [terminalCodes, setTerminalCodes] = useState(() => {
+    const saved = localStorage.getItem('escola_terminals');
+    return saved ? JSON.parse(saved) : { 'Portaria Principal': 'ADM2026' };
+  });
+
+  // Salvar automaticamente no localStorage sempre que houver mudanças
+  useEffect(() => { localStorage.setItem('escola_users', JSON.stringify(users)); }, [users]);
+  useEffect(() => { localStorage.setItem('escola_students', JSON.stringify(students)); }, [students]);
+  useEffect(() => { localStorage.setItem('escola_checkins', JSON.stringify(checkins)); }, [checkins]);
+  useEffect(() => { localStorage.setItem('escola_justifications', JSON.stringify(justifications)); }, [justifications]);
+  useEffect(() => { localStorage.setItem('escola_terminals', JSON.stringify(terminalCodes)); }, [terminalCodes]);
+
+  // Estados de controle de tela e sessão
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
 
-  // Cadastro de Novo Usuário (Pai/Responsável)
+  // Cadastro de Usuário
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regPhone, setRegPhone] = useState('');
   const [regRelation, setRegRelation] = useState('Pai/Mãe');
 
-  // Cadastro de Aluno (Filho) no painel do responsável
+  // Cadastro de Aluno
   const [studentName, setStudentName] = useState('');
   const [studentCpf, setStudentCpf] = useState('');
   const [studentGrade, setStudentGrade] = useState('');
   const [studentTime, setStudentTime] = useState('');
 
+  // Justificativa de Falta
+  const [justStudentCpf, setJustStudentCpf] = useState('');
+  const [justDate, setJustDate] = useState('');
+  const [justReason, setJustReason] = useState('');
+  const [justPhoto, setJustPhoto] = useState(null);
+
   // Catraca / Kiosk
   const [kioskCpf, setKioskCpf] = useState('');
   const [kioskMsg, setKioskMsg] = useState(null);
   const [kioskError, setKioskError] = useState(null);
+  const [newTerminalName, setNewTerminalName] = useState('');
+  const [newTerminalCode, setNewTerminalCode] = useState('');
+  const [enteredTerminalCode, setEnteredTerminalCode] = useState('');
+  const [terminalUnlocked, setTerminalUnlocked] = useState(false);
   const videoRef = useRef(null);
 
   useEffect(() => {
@@ -68,7 +99,6 @@ export default function App() {
 
   const handleRegisterUser = (e) => {
     e.preventDefault();
-    // Verifica se já existe o e-mail
     if (users.some(u => u.email === regEmail)) {
       alert('Este e-mail já está cadastrado!');
       return;
@@ -83,15 +113,13 @@ export default function App() {
     setUsers([...users, newUser]);
     alert('Conta criada com sucesso! Faça login.');
     setCurrentScreen('login');
-    setRegName('');
-    setRegEmail('');
-    setRegPassword('');
-    setRegPhone('');
+    setRegName(''); setRegEmail(''); setRegPassword(''); setRegPhone('');
   };
 
   const handleAddStudent = (e) => {
     e.preventDefault();
     const newStudent = {
+      id: Date.now(),
       parentEmail: currentUser.email,
       parentName: currentUser.name,
       parentPhone: currentUser.phone || 'Não informado',
@@ -103,15 +131,55 @@ export default function App() {
     };
     setStudents([...students, newStudent]);
     alert('Filho cadastrado com sucesso!');
-    setStudentName('');
-    setStudentCpf('');
-    setStudentGrade('');
-    setStudentTime('');
+    setStudentName(''); setStudentCpf(''); setStudentGrade(''); setStudentTime('');
   };
 
-  // Validação do horário de São Paulo (Fuso Horário de Brasília) para calcular se chegou no horário ou atrasado
+  const handleDeleteStudent = (id) => {
+    if (window.confirm('Deseja realmente excluir este aluno?')) {
+      setStudents(students.filter(s => s.id !== id));
+    }
+  };
+
+  // Enviar Justificativa de Falta com Atestado (Foto)
+  const handleSendJustification = (e) => {
+    e.preventDefault();
+    const aluno = students.find(s => s.cpf === justStudentCpf);
+    if (!aluno) {
+      alert('CPF do aluno não encontrado nos seus cadastros!');
+      return;
+    }
+
+    const newJust = {
+      id: Date.now(),
+      studentName: aluno.name,
+      cpf: justStudentCpf,
+      parentEmail: currentUser.email,
+      parentName: currentUser.name,
+      date: justDate,
+      reason: justReason,
+      photo: justPhoto,
+      status: 'Pendente'
+    };
+
+    setJustifications([newJust, ...justifications]);
+    alert('Justificativa enviada com sucesso para análise da administração!');
+    setJustStudentCpf(''); setJustDate(''); setJustReason(''); setJustPhoto(null);
+  };
+
+  // Conversão de arquivo de atestado para imagem base64
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setJustPhoto(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Cálculo baseado no fuso horário real de São Paulo (Brasília)
   const calcularStatusAula = () => {
-    // Pega a hora atual do Brasil/São Paulo via Intl
     const agoraStr = new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
     const agoraDate = new Date(agoraStr);
     
@@ -119,29 +187,21 @@ export default function App() {
     const minutos = agoraDate.getMinutes();
     const totalMinutos = horas * 60 + minutos;
 
-    // Horários convertidos em minutos desde 00:00:
-    // 1ª Aula: 07:00 (420 min) até 07:50 (470 min)
-    // 2ª Aula: 07:51 (471 min) até 08:30 (510 min) -> quem chega aqui entra atrasado na 2ª ou perdeu a 1ª
-    // Limite geral da manhã: até 12:15 (735 min)
-    
-    let status = 'Presente no Horário';
-    let classInfo = '1ª Aula (No horário)';
+    let status = 'Presente';
+    let classInfo = '1ª Aula (Pontual)';
 
-    if (totalMinutos >= 420 && totalMinutos <= 470) {
+    if (totalMinutos >= 420 && totalMinutos <= 470) { // 07:00 - 07:50
       status = 'Presente';
       classInfo = '1ª Aula (Pontual)';
-    } else if (totalMinutos > 470 && totalMinutos <= 510) {
+    } else if (totalMinutos > 470 && totalMinutos <= 510) { // 07:51 - 08:30
       status = 'Atrasado';
       classInfo = '2ª Aula (Entrada Atrasada)';
-    } else if (totalMinutos > 510 && totalMinutos <= 735) {
-      status = 'Presente (Turno Regular)';
-      classInfo = 'Período Regular';
-    } else if (totalMinutos > 735) {
-      status = 'Presença após horário padrão';
-      classInfo = 'Turno Tarde/Noite';
+    } else if (totalMinutos > 510 && totalMinutos <= 735) { // Até 12:15
+      status = 'Presente';
+      classInfo = 'Turno Regular';
     } else {
-      status = 'Entrada Antecipada';
-      classInfo = 'Antes do início das aulas';
+      status = 'Presente';
+      classInfo = 'Período Extra';
     }
 
     const time = agoraDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -153,7 +213,6 @@ export default function App() {
   const handleKioskCheckin = (e) => {
     e.preventDefault();
     
-    // Captura a foto da webcam
     const canvas = document.createElement('canvas');
     canvas.width = 320;
     canvas.height = 240;
@@ -163,7 +222,6 @@ export default function App() {
     }
     const photoDataUrl = canvas.toDataURL('image/jpeg');
 
-    // Identifica o aluno pelo CPF cadastrado por algum responsável
     const alunoEncontrado = students.find(s => s.cpf === kioskCpf);
     const nomeAluno = alunoEncontrado ? alunoEncontrado.name : 'Aluno não cadastrado';
 
@@ -188,17 +246,14 @@ export default function App() {
     setTimeout(() => setKioskMsg(null), 5000);
   };
 
-  // Admin cria um código para a catraca/terminal
   const handleCreateTerminalCode = (e) => {
     e.preventDefault();
     if (!newTerminalName || !newTerminalCode) return;
     setTerminalCodes({ ...terminalCodes, [newTerminalName]: newTerminalCode });
-    setNewTerminalName('');
-    setNewTerminalCode('');
+    setNewTerminalName(''); setNewTerminalCode('');
     alert('Código do terminal gerado com sucesso!');
   };
 
-  // Pai ou operador desbloqueia o terminal informando o código criado pelo Admin
   const handleUnlockTerminal = (e) => {
     e.preventDefault();
     const codigosValidos = Object.values(terminalCodes);
@@ -210,7 +265,6 @@ export default function App() {
     }
   };
 
-  // Admin altera a permissão do usuário
   const toggleUserRole = (userEmail) => {
     setUsers(users.map(u => {
       if (u.email === userEmail) {
@@ -219,6 +273,10 @@ export default function App() {
       }
       return u;
     }));
+  };
+
+  const updateJustificationStatus = (id, newStatus) => {
+    setJustifications(justifications.map(j => j.id === id ? { ...j, status: newStatus } : j));
   };
 
   return (
@@ -264,7 +322,7 @@ export default function App() {
         </div>
       )}
 
-      {/* TELA DE CRIAR CONTA (COM PARENTESCO E TELEFONE) */}
+      {/* TELA DE CRIAR CONTA */}
       {currentScreen === 'register' && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', padding: '16px' }}>
           <div style={{ background: 'white', padding: '32px', borderRadius: '24px', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', width: '100%', maxWidth: '400px' }}>
@@ -303,7 +361,7 @@ export default function App() {
         </div>
       )}
 
-      {/* TELA DA CATRACA / KIOSK (BLOQUEADA POR CÓDIGO DO ADMIN) */}
+      {/* TELA DA CATRACA / KIOSK */}
       {currentScreen === 'kiosk' && (
         <div style={{ backgroundColor: '#0f172a', minHeight: '100vh', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
           
@@ -311,7 +369,7 @@ export default function App() {
             <div style={{ background: '#1e293b', padding: '32px', borderRadius: '24px', width: '100%', maxWidth: '400px', textAlign: 'center', border: '1px solid #334155' }}>
               <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔒</div>
               <h2 style={{ fontSize: '20px', fontWeight: 'bold' }}>Terminal Protegido</h2>
-              <p style={{ fontSize: '12px', color: '#94a3b8', margin: '6px 0 20px' }}>Insira o código fornecido pelo Administrador para liberar o tablet/catraca desta sala.</p>
+              <p style={{ fontSize: '12px', color: '#94a3b8', margin: '6px 0 20px' }}>Insira o código fornecido pelo Administrador para liberar este tablet.</p>
 
               {kioskError && (
                 <div style={{ backgroundColor: '#dc2626', color: 'white', padding: '10px', borderRadius: '10px', fontSize: '12px', fontWeight: 'bold', marginBottom: '14px' }}>
@@ -362,28 +420,25 @@ export default function App() {
         </div>
       )}
 
-      {/* PAINEL DO ADMINISTRADOR (VÊ TODAS AS CONTAS, REGISTROS E CRIA CÓDIGOS DE TERMINAIS) */}
+      {/* PAINEL DO ADMINISTRADOR */}
       {currentScreen === 'admin' && (
         <div style={{ padding: '24px', maxWidth: '900px', margin: '0 auto' }}>
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
             <div>
               <h1 style={{ fontSize: '20px', fontWeight: 'bold' }}>Painel do Administrador (Geral)</h1>
-              <p style={{ fontSize: '12px', color: '#64748b' }}>Controle completo de contas, alunos, acessos e códigos de terminais</p>
+              <p style={{ fontSize: '12px', color: '#64748b' }}>Gestão completa de usuários, alunos, acessos e atestados</p>
             </div>
             <button onClick={() => { setCurrentUser(null); setCurrentScreen('login'); }} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '10px 16px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Sair</button>
           </div>
 
-          {/* GERADOR DE CÓDIGOS DE TERMINAL PARA CATRACAS */}
+          {/* GERADOR DE CÓDIGOS DE TERMINAL */}
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>🔑 Gerenciar Códigos de Acesso para Terminais/Tablets</h3>
-            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>Crie códigos exclusivos para liberar a catraca de cada sala e evitar acessos falsos externos.</p>
-            
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>🔑 Códigos de Acesso para Terminais</h3>
             <form onSubmit={handleCreateTerminalCode} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '10px', marginBottom: '16px' }}>
-              <input type="text" required placeholder="Nome da Sala/Terminal (Ex: Portaria A)" value={newTerminalName} onChange={(e) => setNewTerminalName(e.target.value)} style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '13px' }} />
+              <input type="text" required placeholder="Nome da Sala (Ex: Portaria A)" value={newTerminalName} onChange={(e) => setNewTerminalName(e.target.value)} style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '13px' }} />
               <input type="text" required placeholder="Código Secreto (Ex: 9876)" value={newTerminalCode} onChange={(e) => setNewTerminalCode(e.target.value)} style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '13px' }} />
-              <button type="submit" style={{ background: '#059669', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>Criar Código</button>
+              <button type="submit" style={{ background: '#059669', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px' }}>Criar</button>
             </form>
-
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               {Object.entries(terminalCodes).map(([termName, code], idx) => (
                 <div key={idx} style={{ background: '#f1f5f9', padding: '8px 12px', borderRadius: '10px', fontSize: '12px', border: '1px solid #cbd5e1' }}>
@@ -393,13 +448,13 @@ export default function App() {
             </div>
           </div>
 
-          {/* TODAS AS CONTAS CRIADAS NO APP */}
+          {/* CONTAS CRIADAS NO APP */}
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>👥 Todas as Contas Criadas no App</h3>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>👥 Contas Criadas no App ({users.length})</h3>
             {users.map((u, idx) => (
               <div key={idx} style={{ padding: '12px', background: '#f8fafc', borderRadius: '12px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0' }}>
                 <div>
-                  <strong style={{ fontSize: '14px' }}>{u.name}</strong> <span style={{ fontSize: '11px', color: '#64748b' }}>({u.relation || 'Admin'})</span>
+                  <strong style={{ fontSize: '14px' }}>{u.name}</strong> <span style={{ fontSize: '11px', color: '#64748b' }}>({u.relation})</span>
                   <div style={{ fontSize: '12px', color: '#64748b' }}>E-mail: {u.email} | Tel: {u.phone || 'N/A'} | Cargo: <span style={{ fontWeight: 'bold', color: u.role === 'admin' ? '#059669' : '#2563eb' }}>{u.role.toUpperCase()}</span></div>
                 </div>
                 {u.email !== 'admin.escola@gmail.com' && (
@@ -411,26 +466,41 @@ export default function App() {
             ))}
           </div>
 
-          {/* LISTA COMPLETA DE ALUNOS CADASTRADOS */}
+          {/* JUSTIFICATIVAS E ATESTADOS ENVIADOS PELOS PAIS */}
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>👶 Alunos Cadastrados no Sistema</h3>
-            {students.length === 0 ? (
-              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum aluno cadastrado por responsáveis ainda.</p>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>📝 Justificativas e Atestados Pendentes</h3>
+            {justifications.length === 0 ? (
+              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhuma justificativa enviada até o momento.</p>
             ) : (
-              students.map((s, idx) => (
-                <div key={idx} style={{ padding: '12px', background: '#f8fafc', borderRadius: '12px', marginBottom: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }}>
-                  <strong>{s.name}</strong> (CPF: {s.cpf}) - Turma: {s.grade}
-                  <div style={{ color: '#64748b', fontSize: '12px', marginTop: '2px' }}>
-                    Responsável: {s.parentName} ({s.relation}) | E-mail: {s.parentEmail} | Tel: {s.parentPhone}
+              justifications.map((item) => (
+                <div key={item.id} style={{ padding: '14px', background: '#f8fafc', borderRadius: '12px', marginBottom: '10px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    {item.photo && <img src={item.photo} alt="Atestado" style={{ width: '50px', height: '50px', borderRadius: '8px', objectFit: 'cover' }} />}
+                    <div>
+                      <strong style={{ fontSize: '14px' }}>{item.studentName}</strong> (CPF: {item.cpf})
+                      <div style={{ fontSize: '12px', color: '#64748b' }}>Data da Falta: {item.date} | Motivo: {item.reason}</div>
+                      <div style={{ fontSize: '11px', color: '#0284c7' }}>Resp: {item.parentName} ({item.parentEmail})</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 'bold', padding: '4px 8px', borderRadius: '8px', background: item.status === 'Aprovado' ? '#d1fae5' : item.status === 'Recusado' ? '#fee2e2' : '#fef3c7', color: item.status === 'Aprovado' ? '#065f46' : item.status === 'Recusado' ? '#dc2626' : '#d97706' }}>
+                      {item.status}
+                    </span>
+                    {item.status === 'Pendente' && (
+                      <>
+                        <button onClick={() => updateJustificationStatus(item.id, 'Aprovado')} style={{ background: '#059669', color: 'white', border: 'none', padding: '6px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>Aprovar</button>
+                        <button onClick={() => updateJustificationStatus(item.id, 'Recusado')} style={{ background: '#dc2626', color: 'white', border: 'none', padding: '6px 10px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer' }}>Recusar</button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))
             )}
           </div>
 
-          {/* HISTÓRICO COMPLETO DA CATRACA PARA O ADMIN */}
+          {/* HISTÓRICO DA CATRACA */}
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>📋 Histórico Completo de Todos os Registros</h3>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>📋 Histórico Completo de Acessos</h3>
             {checkins.length === 0 ? (
               <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum acesso registrado na catraca ainda.</p>
             ) : (
@@ -441,7 +511,7 @@ export default function App() {
                     <div>
                       <strong style={{ fontSize: '14px', color: '#0f172a' }}>{item.studentName}</strong>
                       <div style={{ fontSize: '12px', color: '#64748b' }}>CPF: {item.cpf} | {item.classInfo} ({item.date} às {item.time})</div>
-                      <div style={{ fontSize: '11px', color: '#0284c7' }}>Resp: {item.parentName} ({item.relation}) - {item.parentEmail}</div>
+                      <div style={{ fontSize: '11px', color: '#0284c7' }}>Resp: {item.parentName} ({item.relation})</div>
                     </div>
                   </div>
                   <span style={{ background: item.status.includes('Atrasado') ? '#fef3c7' : '#d1fae5', color: item.status.includes('Atrasado') ? '#d97706' : '#065f46', padding: '6px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>
@@ -454,13 +524,13 @@ export default function App() {
         </div>
       )}
 
-      {/* PAINEL DO PAI (VÊ APENAS O FILHO QUE ELE CADASTROU E OS REGISTROS DELE) */}
+      {/* PAINEL DO PAI / RESPONSÁVEL */}
       {currentScreen === 'painel-pai' && (
         <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
             <div>
               <h1 style={{ fontSize: '20px', fontWeight: 'bold' }}>Painel do Responsável</h1>
-              <p style={{ fontSize: '12px', color: '#64748b' }}>Bem-vindo, {currentUser?.name} ({currentUser?.relation})</p>
+              <p style={{ fontSize: '12px', color: '#64748b' }}>{currentUser?.name} ({currentUser?.relation}) - {currentUser?.phone}</p>
             </div>
             <button onClick={() => { setCurrentUser(null); setCurrentScreen('login'); }} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '10px 16px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Sair</button>
           </div>
@@ -493,26 +563,60 @@ export default function App() {
             </form>
           </div>
 
-          {/* LISTA DOS FILHOS DESTE RESPONSÁVEL */}
+          {/* LISTA DOS FILHOS CADASTRADOS */}
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px', color: '#0f172a' }}>👦 Meus Filhos Cadastrados</h3>
             {students.filter(s => s.parentEmail === currentUser?.email).length === 0 ? (
               <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum filho cadastrado por você ainda.</p>
             ) : (
-              students.filter(s => s.parentEmail === currentUser?.email).map((child, idx) => (
-                <div key={idx} style={{ padding: '14px', background: '#f8fafc', borderRadius: '12px', marginBottom: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#0f172a' }}>{child.name}</div>
-                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
-                    CPF: {child.cpf} | Turma: {child.grade} | Horário: {child.time}
+              students.filter(s => s.parentEmail === currentUser?.email).map((child) => (
+                <div key={child.id} style={{ padding: '14px', background: '#f8fafc', borderRadius: '12px', marginBottom: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#0f172a' }}>{child.name}</div>
+                    <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                      CPF: {child.cpf} | Turma: {child.grade} | Horário: {child.time}
+                    </div>
                   </div>
+                  <button onClick={() => handleDeleteStudent(child.id)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>Excluir</button>
                 </div>
               ))
             )}
           </div>
 
-          {/* HISTÓRICO EXCLUSIVO APENAS DOS FILHOS DESTE RESPONSÁVEL */}
+          {/* JUSTIFICAR FALTA / ATESTADO */}
+          <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px', color: '#0f172a' }}>📄 Justificar Falta ou Enviar Atestado</h3>
+            <form onSubmit={handleSendJustification} style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Selecione o Aluno (CPF)</label>
+                <select value={justStudentCpf} onChange={(e) => setJustStudentCpf(e.target.value)} required style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box', background: 'white' }}>
+                  <option value="">Selecione...</option>
+                  {students.filter(s => s.parentEmail === currentUser?.email).map(s => (
+                    <option key={s.id} value={s.cpf}>{s.name} ({s.cpf})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Data da Falta</label>
+                <input type="date" required value={justDate} onChange={(e) => setJustDate(e.target.value)} style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Explicação / Motivo</label>
+                <textarea required value={justReason} onChange={(e) => setJustReason(e.target.value)} placeholder="Explique o motivo da ausência..." rows="3" style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box' }}></textarea>
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Foto do Atestado Médico / Documento</label>
+                <input type="file" accept="image/*" onChange={handlePhotoUpload} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box', background: '#f8fafc' }} />
+              </div>
+              <button type="submit" style={{ background: '#2563eb', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                Enviar Justificativa 📤
+              </button>
+            </form>
+          </div>
+
+          {/* HISTÓRICO DE ACESSOS */}
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>🕒 Histórico de Acessos e Frequência dos Meus Filhos</h3>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>🕒 Histórico de Acessos dos Meus Filhos</h3>
             {checkins.filter(item => {
               const meusCpfs = students.filter(s => s.parentEmail === currentUser?.email).map(s => s.cpf);
               return meusCpfs.includes(item.cpf);
