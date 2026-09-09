@@ -1,42 +1,44 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('login');
-  const [users, setUsers] = useState([]);
-  const [students, setStudents] = useState([]);
-  const [checkins, setCheckins] = useState([]);
   
-  // Estados dos inputs
+  // Estados de autenticação e dados
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
-  const [regRole, setRegRole] = useState('pai');
-  
-  // Cadastro de Aluno
+
+  // Lista de filhos vinculados ao responsável
+  const [myStudents, setMyStudents] = useState([]);
   const [studentName, setStudentName] = useState('');
   const [studentCpf, setStudentCpf] = useState('');
   const [studentGrade, setStudentGrade] = useState('');
+  const [studentTime, setStudentTime] = useState('');
 
   // Catraca
   const [kioskCpf, setKioskCpf] = useState('');
   const [kioskMsg, setKioskMsg] = useState(null);
+  const [checkins, setCheckins] = useState([]);
   const videoRef = useRef(null);
 
   useEffect(() => {
     if (currentScreen === 'kiosk') {
       navigator.mediaDevices.getUserMedia({ video: true })
         .then((stream) => { if (videoRef.current) videoRef.current.srcObject = stream; })
-        .catch((err) => console.log("Câmera indisponível no navegador"));
+        .catch((err) => console.log("Câmera indisponível"));
     }
   }, [currentScreen]);
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (email === 'admin@escola.com') {
+    // Validação do Admin com o e-mail e senha específicos
+    if (email === 'admin.escola@gmail.com' && password === 'ADM1') {
       setCurrentScreen('admin');
+    } else if (email === 'admin.escola@gmail.com' && password !== 'ADM1') {
+      alert('Senha incorreta para o administrador!');
     } else {
       setCurrentScreen('painel-pai');
     }
@@ -44,20 +46,24 @@ export default function App() {
 
   const handleRegisterUser = (e) => {
     e.preventDefault();
-    const newUser = { name: regName, email: regEmail, role: regRole };
-    setUsers([...users, newUser]);
     alert('Conta criada com sucesso! Faça login.');
     setCurrentScreen('login');
   };
 
-  const handleRegisterStudent = (e) => {
+  const handleAddStudent = (e) => {
     e.preventDefault();
-    const newStudent = { name: studentName, cpf: studentCpf, grade: studentGrade };
-    setStudents([...students, newStudent]);
-    alert('Aluno cadastrado com sucesso!');
+    const newStudent = {
+      name: studentName,
+      cpf: studentCpf,
+      grade: studentGrade,
+      time: studentTime
+    };
+    setMyStudents([...myStudents, newStudent]);
+    alert('Filho cadastrado com sucesso!');
     setStudentName('');
     setStudentCpf('');
     setStudentGrade('');
+    setStudentTime('');
   };
 
   const handleKioskCheckin = (e) => {
@@ -91,7 +97,7 @@ export default function App() {
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>E-mail</label>
                 <input 
                   type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                  placeholder="ex: admin@escola.com" 
+                  placeholder="ex: admin.escola@gmail.com" 
                   style={{ width: '100%', padding: '12px 16px', border: '1px solid #cbd5e1', borderRadius: '14px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }} 
                 />
               </div>
@@ -160,7 +166,7 @@ export default function App() {
             <form onSubmit={handleKioskCheckin} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <input 
                 type="text" required value={kioskCpf} onChange={(e) => setKioskCpf(e.target.value)}
-                placeholder="Digite o CPF..." 
+                placeholder="Digite o CPF do aluno..." 
                 style={{ width: '100%', padding: '14px', textAlign: 'center', fontSize: '16px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '12px', outline: 'none', boxSizing: 'border-box' }}
               />
               <button type="submit" style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
@@ -179,32 +185,23 @@ export default function App() {
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
             <div>
               <h1 style={{ fontSize: '20px', fontWeight: 'bold' }}>Painel do Administrador</h1>
-              <p style={{ fontSize: '12px', color: '#64748b' }}>Gerencie alunos e controle o sistema</p>
+              <p style={{ fontSize: '12px', color: '#64748b' }}>Visão geral do sistema escolar</p>
             </div>
             <button onClick={() => setCurrentScreen('login')} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '10px 16px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Sair</button>
           </div>
 
-          <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>➕ Cadastrar Novo Aluno</h3>
-            <form onSubmit={handleRegisterStudent} style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
-              <input type="text" required value={studentName} onChange={(e) => setStudentName(e.target.value)} placeholder="Nome do Aluno" style={{ padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px' }} />
-              <input type="text" required value={studentCpf} onChange={(e) => setStudentCpf(e.target.value)} placeholder="CPF do Aluno" style={{ padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px' }} />
-              <input type="text" required value={studentGrade} onChange={(e) => setStudentGrade(e.target.value)} placeholder="Turma/Série (ex: 5º Ano)" style={{ padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px' }} />
-              <button type="submit" style={{ background: '#059669', color: 'white', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>Salvar Aluno</button>
-            </form>
-          </div>
-
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>📋 Alunos Cadastrados</h3>
-            {students.length === 0 ? (
-              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum aluno cadastrado ainda.</p>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>📋 Acessos Registrados na Catraca</h3>
+            {checkins.length === 0 ? (
+              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum acesso registrado ainda.</p>
             ) : (
-              students.map((s, idx) => (
-                <div key={idx} style={{ padding: '12px', background: '#f8fafc', borderRadius: '12px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              checkins.map((item, idx) => (
+                <div key={idx} style={{ padding: '12px', background: '#f8fafc', borderRadius: '12px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0' }}>
                   <div>
-                    <strong style={{ fontSize: '14px' }}>{s.name}</strong>
-                    <div style={{ fontSize: '12px', color: '#64748b' }}>CPF: {s.cpf} | Turma: {s.grade}</div>
+                    <strong style={{ fontSize: '14px' }}>CPF: {item.cpf}</strong>
+                    <div style={{ fontSize: '12px', color: '#64748b' }}>Entrada em {item.date} às {item.time}</div>
                   </div>
+                  <span style={{ background: '#d1fae5', color: '#065f46', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>Presente</span>
                 </div>
               ))
             )}
@@ -212,21 +209,66 @@ export default function App() {
         </div>
       )}
 
-      {/* PAINEL DO PAI */}
+      {/* PAINEL DO PAI / RESPONSÁVEL COM CADASTRO DE FILHO */}
       {currentScreen === 'painel-pai' && (
         <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
             <div>
               <h1 style={{ fontSize: '20px', fontWeight: 'bold' }}>Painel do Responsável</h1>
-              <p style={{ fontSize: '12px', color: '#64748b' }}>Acompanhe a frequência em tempo real</p>
+              <p style={{ fontSize: '12px', color: '#64748b' }}>Cadastre e acompanhe seus filhos</p>
             </div>
             <button onClick={() => setCurrentScreen('login')} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '10px 16px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Sair</button>
           </div>
 
+          {/* FORMULÁRIO DE CADASTRAR FILHO */}
+          <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px', color: '#0f172a' }}>👶 Cadastrar Novo Filho</h3>
+            <form onSubmit={handleAddStudent} style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Nome Completo do Aluno</label>
+                <input type="text" required value={studentName} onChange={(e) => setStudentName(e.target.value)} placeholder="Ex: João da Silva" style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>CPF do Aluno</label>
+                <input type="text" required value={studentCpf} onChange={(e) => setStudentCpf(e.target.value)} placeholder="Ex: 000.000.000-00" style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Turma</label>
+                  <input type="text" required value={studentGrade} onChange={(e) => setStudentGrade(e.target.value)} placeholder="Ex: 5º Ano B" style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#475569', display: 'block', marginBottom: '4px' }}>Horário de Aula</label>
+                  <input type="text" required value={studentTime} onChange={(e) => setStudentTime(e.target.value)} placeholder="Ex: 07:00 - 12:00" style={{ width: '100%', padding: '12px', border: '1px solid #cbd5e1', borderRadius: '12px', boxSizing: 'border-box' }} />
+                </div>
+              </div>
+              <button type="submit" style={{ background: '#059669', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', marginTop: '6px' }}>
+                Salvar Filho 💾
+              </button>
+            </form>
+          </div>
+
+          {/* LISTA DOS FILHOS CADASTRADOS */}
+          <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px', color: '#0f172a' }}>👦 Meus Filhos Cadastrados</h3>
+            {myStudents.length === 0 ? (
+              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum filho cadastrado ainda.</p>
+            ) : (
+              myStudents.map((child, idx) => (
+                <div key={idx} style={{ padding: '14px', background: '#f8fafc', borderRadius: '12px', marginBottom: '8px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#0f172a' }}>{child.name}</div>
+                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
+                    CPF: {child.cpf} | Turma: {child.grade} | Horário: {child.time}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>🕒 Histórico de Acessos</h3>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>🕒 Histórico de Acessos na Catraca</h3>
             {checkins.length === 0 ? (
-              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum registro na catraca hoje.</p>
+              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum registro na catraca ainda.</p>
             ) : (
               checkins.map((item, idx) => (
                 <div key={idx} style={{ padding: '14px', background: '#f8fafc', borderRadius: '12px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0' }}>
