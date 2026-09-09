@@ -1,0 +1,554 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { 
+  Shield, Camera, User, Users, Clock, AlertCircle, 
+  CheckCircle, LogOut, ArrowRight, Bell, Calendar, 
+  FileText, Plus, Trash2, Wifi, WifiOff, Download, Search
+} from 'lucide-react';
+
+// ==================== TELA DE LOGIN ====================
+function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const navigate = useNavigate();
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (email === 'admin@escola.com') {
+      navigate('/admin');
+    } else {
+      navigate('/painel-pai');
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-4">
+      <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full border border-slate-100">
+        <div className="text-center mb-8">
+          <div className="bg-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 text-white font-bold text-2xl shadow-lg shadow-blue-500/30">🎓</div>
+          <h1 className="text-2xl font-bold text-slate-800">Portal Escolar Pro</h1>
+          <p className="text-sm text-slate-500 mt-1">Acompanhamento inteligente e tempo real</p>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">E-mail de Acesso</label>
+            <input 
+              type="email" 
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ex: pai@email.com ou admin@escola.com" 
+              className="w-full p-3.5 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 bg-slate-50" 
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">Senha</label>
+            <input 
+              type="password" 
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••" 
+              className="w-full p-3.5 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-slate-700 bg-slate-50" 
+            />
+          </div>
+          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3.5 rounded-2xl font-bold shadow-lg shadow-blue-600/30 transition">
+            Entrar no Sistema
+          </button>
+        </form>
+
+        <div className="mt-6 text-center space-y-3">
+          <p className="text-sm text-slate-600">Não tem conta? <Link to="/register" className="text-blue-600 font-bold hover:underline">Cadastre-se</Link></p>
+          <div className="pt-4 border-t border-slate-100 flex justify-between text-xs text-slate-400">
+            <Link to="/kiosk" className="hover:text-blue-600 font-medium">📱 Modo Catraca (Tablet)</Link>
+            <Link to="/admin" className="hover:text-blue-600 font-medium">⚙️ Acesso ADM</Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==================== CADASTRO COM MÚLTIPLOS FILHOS ====================
+function Register() {
+  const [step, setStep] = useState(1);
+  const [parentData, setParentData] = useState({ name: '', email: '', password: '' });
+  const [children, setChildren] = useState([{ name: '', cpf: '', grade: '' }]);
+  const navigate = useNavigate();
+
+  const handleAddChildField = () => {
+    setChildren([...children, { name: '', cpf: '', grade: '' }]);
+  };
+
+  const handleRemoveChild = (index) => {
+    if (children.length > 1) {
+      setChildren(children.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleChildChange = (index, field, value) => {
+    const updated = [...children];
+    updated[index][field] = value;
+    setChildren(updated);
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    alert(`Conta criada com sucesso! ${children.length} filho(s) vinculado(s) via CPF.`);
+    navigate('/painel-pai');
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+      <div className="bg-white p-8 rounded-3xl shadow-xl max-w-lg w-full">
+        <h2 className="text-2xl font-bold text-slate-800 mb-1">Criar Conta de Responsável</h2>
+        <p className="text-sm text-slate-500 mb-6">Passo {step} de 2: {step === 1 ? 'Dados Pessoais' : 'Vincular Filhos (CPFs)'}</p>
+
+        <form onSubmit={step === 1 ? (e) => { e.preventDefault(); setStep(2); } : handleSubmit} className="space-y-4">
+          {step === 1 ? (
+            <>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Seu Nome Completo</label>
+                <input type="text" required value={parentData.name} onChange={e=>setParentData({...parentData, name: e.target.value})} placeholder="Nome completo" className="w-full p-3.5 border rounded-2xl bg-slate-50" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">E-mail</label>
+                <input type="email" required value={parentData.email} onChange={e=>setParentData({...parentData, email: e.target.value})} placeholder="seu@email.com" className="w-full p-3.5 border rounded-2xl bg-slate-50" />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Senha</label>
+                <input type="password" required value={parentData.password} onChange={e=>setParentData({...parentData, password: e.target.value})} placeholder="••••••••" className="w-full p-3.5 border rounded-2xl bg-slate-50" />
+              </div>
+              <button type="submit" className="w-full bg-blue-600 text-white p-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30">
+                Avançar para Cadastrar Filhos <ArrowRight size={18} />
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="space-y-4 max-h-64 overflow-y-auto pr-1">
+                {children.map((child, index) => (
+                  <div key={index} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 relative">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-blue-600 uppercase">Filho #{index + 1}</span>
+                      {children.length > 1 && (
+                        <button type="button" onClick={() => handleRemoveChild(index)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
+                      )}
+                    </div>
+                    <input type="text" required placeholder="Nome do Aluno" value={child.name} onChange={e => handleChildChange(index, 'name', e.target.value)} className="w-full p-3 border rounded-xl bg-white text-sm" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="text" required placeholder="CPF (ex: 000.000.000-00)" value={child.cpf} onChange={e => handleChildChange(index, 'cpf', e.target.value)} className="w-full p-3 border rounded-xl bg-white text-sm" />
+                      <input type="text" required placeholder="Turma (ex: 5º Ano)" value={child.grade} onChange={e => handleChildChange(index, 'grade', e.target.value)} className="w-full p-3 border rounded-xl bg-white text-sm" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button type="button" onClick={handleAddChildField} className="w-full border-2 border-dashed border-blue-300 text-blue-600 p-3 rounded-2xl font-semibold flex items-center justify-center gap-2 hover:bg-blue-50 transition">
+                <Plus size={18} /> Adicionar Outro Filho
+              </button>
+
+              <div className="flex gap-2 pt-2">
+                <button type="button" onClick={()=>setStep(1)} className="w-1/3 bg-slate-200 text-slate-700 p-3.5 rounded-2xl font-semibold">Voltar</button>
+                <button type="submit" className="w-2/3 bg-green-600 hover:bg-green-700 text-white p-3.5 rounded-2xl font-bold shadow-lg shadow-green-600/30">Finalizar Cadastro</button>
+              </div>
+            </>
+          )}
+        </form>
+        <div className="mt-4 text-center">
+          <Link to="/" className="text-sm text-blue-600 font-semibold hover:underline">Já tem conta? Faça login</Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==================== PAINEL DO PAI (COM MÚLTIPLOS FILHOS E CALENDÁRIO) ====================
+function PainelPai() {
+  const [activeChildIndex, setActiveChildIndex] = useState(0);
+  const [showJustifyModal, setShowJustifyModal] = useState(false);
+  const [justificationText, setJustificationText] = useState('');
+
+  // Simulando dados de múltiplos filhos
+  const childrenData = [
+    {
+      name: "Lucas Gabriel da Silva",
+      cpf: "123.456.789-00",
+      grade: "5º Ano B",
+      status: "Presente na Escola",
+      scheduleToday: "07:32 (Normal)",
+      history: [
+        { date: "09/09/2026", status: "Presente", time: "07:32" },
+        { date: "08/09/2026", status: "Presente", time: "07:28" },
+        { date: "07/09/2026", status: "Falta Justificada", time: "-" },
+        { date: "04/09/2026", status: "Atrasado", time: "08:15" },
+      ]
+    },
+    {
+      name: "Mariana da Silva",
+      cpf: "987.654.321-11",
+      grade: "2º Ano A",
+      status: "Presente na Escola",
+      scheduleToday: "07:40 (Normal)",
+      history: [
+        { date: "09/09/2026", status: "Presente", time: "07:40" },
+        { date: "08/09/2026", status: "Presente", time: "07:35" },
+        { date: "07/09/2026", status: "Presente", time: "07:30" },
+      ]
+    }
+  ];
+
+  const currentChild = childrenData[activeChildIndex];
+
+  const handleSendJustification = (e) => {
+    e.preventDefault();
+    alert("Atestado / Justificativa enviado com sucesso para a coordenação da escola!");
+    setShowJustifyModal(false);
+    setJustificationText('');
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-100 p-4 md:p-8">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="bg-white p-6 rounded-3xl shadow flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">Painel do Responsável</h1>
+            <p className="text-sm text-slate-500">Acompanhamento escolar unificado</p>
+          </div>
+          <Link to="/" className="flex items-center gap-2 text-red-600 bg-red-50 px-4 py-2 rounded-2xl text-sm font-bold hover:bg-red-100 transition">
+            <LogOut size={16} /> Sair
+          </Link>
+        </div>
+
+        {/* Abas para alternar entre os filhos */}
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {childrenData.map((child, idx) => (
+            <button
+              key={idx}
+              onClick={() => setActiveChildIndex(idx)}
+              className={`px-5 py-3 rounded-2xl font-bold text-sm whitespace-nowrap transition shadow-sm ${activeChildIndex === idx ? 'bg-blue-600 text-white shadow-blue-600/30' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+            >
+              👶 {child.name} ({child.grade})
+            </button>
+          ))}
+        </div>
+
+        {/* Card do Filho Selecionado */}
+        <div className="bg-white p-6 md:p-8 rounded-3xl shadow border-l-8 border-blue-600 space-y-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <span className="bg-blue-100 text-blue-700 text-xs px-3 py-1 rounded-full font-bold">Turma: {currentChild.grade}</span>
+              <h2 className="text-2xl font-bold text-slate-800 mt-2">{currentChild.name}</h2>
+              <p className="text-sm text-slate-400">CPF: {currentChild.cpf}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="bg-green-100 text-green-700 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5">
+                <CheckCircle size={14} /> {currentChild.status}
+              </span>
+              <button onClick={() => setShowJustifyModal(true)} className="bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-amber-100 transition">
+                📋 Justificar Falta / Atestado
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <span className="text-xs text-slate-400 block font-semibold">Entrada Hoje (Catraca)</span>
+              <span className="text-lg font-bold text-slate-800">{currentChild.scheduleToday}</span>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <span className="text-xs text-slate-400 block font-semibold">Status de Aulas</span>
+              <span className="text-lg font-bold text-green-600">100% Presente</span>
+            </div>
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <span className="text-xs text-slate-400 block font-semibold">Ocorrências</span>
+              <span className="text-lg font-bold text-slate-800">Nenhuma</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Histórico Visual de Frequência */}
+        <div className="bg-white p-6 md:p-8 rounded-3xl shadow space-y-4">
+          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <Calendar size={20} className="text-blue-600"/> Histórico de Frequência e Fotos da Catraca
+          </h3>
+          <div className="space-y-3">
+            {currentChild.history.map((hist, i) => (
+              <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold">📅</div>
+                  <div>
+                    <h4 className="font-semibold text-slate-800">{hist.date} - Entrada às {hist.time}</h4>
+                    <p className="text-xs text-slate-500">Capturado automaticamente via câmera da catraca</p>
+                  </div>
+                </div>
+                <span className={`text-xs px-3 py-1.5 rounded-full font-bold ${hist.status === 'Presente' ? 'bg-green-100 text-green-700' : hist.status === 'Atrasado' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                  {hist.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Modal para Justificar Falta */}
+      {showJustifyModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white p-6 md:p-8 rounded-3xl shadow-2xl max-w-md w-full space-y-4">
+            <h3 className="text-xl font-bold text-slate-800">Enviar Justificativa / Atestado</h3>
+            <p className="text-sm text-slate-500">Descreva o motivo da ausência ou anexe o atestado médico digital para {currentChild.name}.</p>
+            <form onSubmit={handleSendJustification} className="space-y-4">
+              <textarea 
+                required
+                rows="4"
+                value={justificationText}
+                onChange={(e) => setJustificationText(e.target.value)}
+                placeholder="Ex: Consulta médica agendada no período da manhã..."
+                className="w-full p-3.5 border rounded-2xl bg-slate-50 text-sm outline-none"
+              ></textarea>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setShowJustifyModal(false)} className="w-1/2 bg-slate-200 text-slate-700 p-3 rounded-2xl font-bold">Cancelar</button>
+                <button type="submit" className="w-1/2 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-2xl font-bold shadow-lg shadow-blue-600/30">Enviar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== TABLET / CATRACA COM CÂMERA REAL E MODO OFFLINE ====================
+function Kiosk() {
+  const [cpf, setCpf] = useState('');
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [successMsg, setSuccessMsg] = useState(null);
+  const [capturedImage, setCapturedImage] = useState(null);
+  const videoRef = useRef(null);
+
+  // Monitorar conexão com a internet (Modo Offline)
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Ligar a câmera web real do navegador
+  useEffect(() => {
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then((stream) => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      })
+      .catch((err) => {
+        console.log("Câmera indisponível ou permissão negada:", err);
+      });
+  }, []);
+
+  const handleCheckin = (e) => {
+    e.preventDefault();
+    // Simula captura de frame da câmera para foto real
+    setCapturedImage("https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80");
+    
+    if (isOnline) {
+      setSuccessMsg(`Check-in & Foto enviados com sucesso para o CPF ${cpf}!`);
+    } else {
+      setSuccessMsg(`Sem internet! Check-in salvo localmente no Tablet. Sincronizará ao reconectar.`);
+    }
+
+    setCpf('');
+    setTimeout(() => {
+      setSuccessMsg(null);
+      setCapturedImage(null);
+    }, 5000);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4 relative">
+      {/* Indicador de Status de Rede */}
+      <div className={`absolute top-6 right-6 px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 ${isOnline ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
+        {isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
+        {isOnline ? 'Sistema Online' : 'Modo Offline Ativado'}
+      </div>
+
+      <div className="bg-slate-900 p-8 rounded-3xl shadow-2xl max-w-lg w-full text-center border border-slate-800 space-y-6">
+        <div className="relative w-36 h-36 mx-auto rounded-2xl overflow-hidden bg-slate-800 border-2 border-slate-700 shadow-inner flex items-center justify-center">
+          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover"></video>
+          {!videoRef.current?.srcObject && <Camera size={36} className="text-slate-500 absolute" />}
+        </div>
+
+        <div>
+          <h1 className="text-3xl font-bold">Catraca Escolar Pro</h1>
+          <p className="text-slate-400 text-sm mt-1">Aproxime o aluno e digite o CPF</p>
+        </div>
+
+        {successMsg && (
+          <div className="bg-blue-600 text-white p-4 rounded-2xl font-semibold text-sm animate-pulse shadow-lg">
+            {successMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleCheckin} className="space-y-4">
+          <input 
+            type="text" 
+            required
+            value={cpf}
+            onChange={(e) => setCpf(e.target.value)}
+            placeholder="Digite o CPF do Aluno..." 
+            className="w-full p-4 text-center text-xl bg-slate-950 border border-slate-800 rounded-2xl text-white focus:ring-2 focus:ring-blue-500 outline-none"
+          />
+          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white p-4 rounded-2xl font-bold text-lg shadow-lg shadow-blue-600/30 transition">
+            Validar Entrada & Foto 📸
+          </button>
+        </form>
+
+        <div className="pt-4 border-t border-slate-800 flex justify-between text-xs text-slate-500">
+          <Link to="/" className="hover:text-white">← Voltar ao Login</Link>
+          <Link to="/admin" className="hover:text-white">Painel ADM →</Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==================== PAINEL ADM (COM FILTROS E RELATÓRIOS) ====================
+function Admin() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterGrade, setFilterGrade] = useState('todos');
+
+  const movements = [
+    { name: "Lucas Gabriel da Silva", grade: "5º Ano B", time: "07:32", status: "No Horário" },
+    { name: "Mariana da Silva", grade: "2º Ano A", time: "07:40", status: "No Horário" },
+    { name: "Beatriz Souza Lima", grade: "3º Ano A", time: "08:15", status: "Atrasado" },
+    { name: "Carlos Eduardo Mendes", grade: "5º Ano B", time: "-", status: "Falta" },
+  ];
+
+  const filteredMovements = movements.filter(m => {
+    const matchesSearch = m.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesGrade = filterGrade === 'todos' || m.grade === filterGrade;
+    return matchesSearch && matchesGrade;
+  });
+
+  const handleExportReport = () => {
+    alert("Relatório de frequência mensal exportado em planilha/PDF com sucesso!");
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-100 p-4 md:p-8">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className="bg-white p-6 rounded-3xl shadow flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">Painel Administrativo Pro (ADM)</h1>
+            <p className="text-sm text-slate-500">Gerenciamento global de frequência e relatórios</p>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleExportReport} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-2xl text-sm font-bold shadow-lg shadow-green-600/30 transition">
+              <Download size={16} /> Baixar Relatório (Excel/PDF)
+            </button>
+            <Link to="/" className="text-slate-600 bg-slate-100 px-4 py-2.5 rounded-2xl text-sm font-bold hover:bg-slate-200 transition">
+              Sair
+            </Link>
+          </div>
+        </div>
+
+        {/* Métricas Globais */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-white p-6 rounded-3xl shadow">
+            <span className="text-xs text-slate-400 font-bold uppercase">Total de Alunos</span>
+            <span className="text-3xl font-extrabold text-slate-800 mt-1 block">480</span>
+          </div>
+          <div className="bg-white p-6 rounded-3xl shadow">
+            <span className="text-xs text-slate-400 font-bold uppercase">Presentes Hoje</span>
+            <span className="text-3xl font-extrabold text-green-600 mt-1 block">452</span>
+          </div>
+          <div className="bg-white p-6 rounded-3xl shadow">
+            <span className="text-xs text-slate-400 font-bold uppercase">Atrasados</span>
+            <span className="text-3xl font-extrabold text-amber-500 mt-1 block">18</span>
+          </div>
+          <div className="bg-white p-6 rounded-3xl shadow">
+            <span className="text-xs text-slate-400 font-bold uppercase">Faltas</span>
+            <span className="text-3xl font-extrabold text-red-600 mt-1 block">10</span>
+          </div>
+        </div>
+
+        {/* Filtros e Busca */}
+        <div className="bg-white p-6 rounded-3xl shadow flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="relative w-full md:w-96">
+            <Search className="absolute left-4 top-3.5 text-slate-400" size={18} />
+            <input 
+              type="text" 
+              placeholder="Pesquisar aluno por nome..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-11 pr-4 py-3 bg-slate-50 border rounded-2xl text-sm outline-none"
+            />
+          </div>
+          <select 
+            value={filterGrade} 
+            onChange={(e) => setFilterGrade(e.target.value)}
+            className="w-full md:w-48 p-3 bg-slate-50 border rounded-2xl text-sm font-semibold outline-none"
+          >
+            <option value="todos">Todas as Turmas</option>
+            <option value="5º Ano B">5º Ano B</option>
+            <option value="3º Ano A">3º Ano A</option>
+            <option value="2º Ano A">2º Ano A</option>
+          </select>
+        </div>
+
+        {/* Tabela de Alunos */}
+        <div className="bg-white p-6 rounded-3xl shadow">
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Movimentações Recentes na Catraca</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b text-xs text-slate-400 uppercase font-bold">
+                  <th className="pb-3">Aluno</th>
+                  <th className="pb-3">Turma</th>
+                  <th className="pb-3">Horário</th>
+                  <th className="pb-3">Status</th>
+                  <th className="pb-3">Ação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y text-sm">
+                {filteredMovements.map((m, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50">
+                    <td className="py-4 font-bold text-slate-700">{m.name}</td>
+                    <td className="py-4 text-slate-500">{m.grade}</td>
+                    <td className="py-4 text-slate-500">{m.time}</td>
+                    <td className="py-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${m.status === 'No Horário' ? 'bg-green-100 text-green-700' : m.status === 'Atrasado' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                        {m.status}
+                      </span>
+                    </td>
+                    <td className="py-4 text-blue-600 font-bold cursor-pointer hover:underline">Ver Foto 📸</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==================== ROTAS PRINCIPAIS ====================
+export default function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/painel-pai" element={<PainelPai />} />
+        <Route path="/kiosk" element={<Kiosk />} />
+        <Route path="/admin" element={<Admin />} />
+      </Routes>
+    </Router>
+  );
+}
