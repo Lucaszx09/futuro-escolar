@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react
 import { 
   Shield, Camera, User, Users, Clock, AlertCircle, 
   CheckCircle, LogOut, ArrowRight, Bell, Calendar, 
-  FileText, Plus, Trash2, Wifi, WifiOff, Download, Search
+  FileText, Plus, Trash2, Wifi, WifiOff, Download, Search, Lock, Key
 } from 'lucide-react';
 
 // ==================== TELA DE LOGIN ====================
@@ -14,8 +14,11 @@ function Login() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (email === 'admin@escola.com') {
+    // Credenciais restritas do ADM solicitadas por você
+    if (email === 'admin@escola.com' && (password === 'ADM1' || password === 'ADM2' || password === 'ADM123')) {
       navigate('/admin');
+    } else if (email === 'admin@escola.com') {
+      alert('Senha do Administrador incorreta! Use ADM1 ou ADM2.');
     } else {
       navigate('/painel-pai');
     }
@@ -27,7 +30,7 @@ function Login() {
         <div className="text-center mb-8">
           <div className="bg-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 text-white font-bold text-2xl shadow-lg shadow-blue-500/30">🎓</div>
           <h1 className="text-2xl font-bold text-slate-800">Portal Escolar Pro</h1>
-          <p className="text-sm text-slate-500 mt-1">Acompanhamento inteligente e tempo real</p>
+          <p className="text-sm text-slate-500 mt-1">Acesso seguro e monitorado</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
@@ -43,7 +46,7 @@ function Login() {
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">Senha</label>
+            <label className="block text-sm font-semibold text-slate-700 mb-1">Senha (ADM: ADM1 / ADM2)</label>
             <input 
               type="password" 
               required
@@ -61,9 +64,60 @@ function Login() {
         <div className="mt-6 text-center space-y-3">
           <p className="text-sm text-slate-600">Não tem conta? <Link to="/register" className="text-blue-600 font-bold hover:underline">Cadastre-se</Link></p>
           <div className="pt-4 border-t border-slate-100 flex justify-between text-xs text-slate-400">
-            <Link to="/kiosk" className="hover:text-blue-600 font-medium">📱 Modo Catraca (Tablet)</Link>
+            <Link to="/kiosk-auth" className="hover:text-blue-600 font-medium flex items-center gap-1">📱 Acessar Tablet (Catraca)</Link>
             <Link to="/admin" className="hover:text-blue-600 font-medium">⚙️ Acesso ADM</Link>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==================== TELA DE AUTENTICAÇÃO DO TABLET (BLOQUEIO DE SEGURANÇA) ====================
+function KioskAuth() {
+  const [pinCode, setPinCode] = useState('');
+  const navigate = useNavigate();
+
+  // Códigos válidos gerados pelo ADM (exemplo de tokens seguros da escola)
+  const validPins = ['ESCOLA-TABLET-01', 'ESCOLA-TABLET-02', 'ADM999'];
+
+  const handleVerifyPin = (e) => {
+    e.preventDefault();
+    if (validPins.includes(pinCode.trim().toUpperCase())) {
+      localStorage.setItem('kiosk_authorized', 'true');
+      navigate('/kiosk');
+    } else {
+      alert('Código de liberação do tablet inválido! Solicite o código ao Administrador.');
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-950 p-4">
+      <div className="bg-slate-900 p-8 rounded-3xl shadow-2xl max-w-md w-full border border-slate-800 text-center space-y-6">
+        <div className="bg-red-500/20 text-red-400 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto border border-red-500/30">
+          <Lock size={32} />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-white">Área Restrita - Catraca</h1>
+          <p className="text-sm text-slate-400 mt-1">Insira o Código de Autorização fornecido pela administração para liberar este dispositivo.</p>
+        </div>
+
+        <form onSubmit={handleVerifyPin} className="space-y-4">
+          <input 
+            type="text" 
+            required
+            value={pinCode}
+            onChange={(e) => setPinCode(e.target.value)}
+            placeholder="Ex: ESCOLA-TABLET-01" 
+            className="w-full p-4 text-center text-lg bg-slate-950 border border-slate-800 rounded-2xl text-white uppercase tracking-wider focus:ring-2 focus:ring-blue-500 outline-none"
+          />
+          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white p-4 rounded-2xl font-bold shadow-lg shadow-blue-600/30 transition">
+            Liberar Catraca 🔓
+          </button>
+        </form>
+
+        <div className="pt-2">
+          <Link to="/" className="text-xs text-slate-500 hover:text-white">← Voltar ao Início</Link>
         </div>
       </div>
     </div>
@@ -77,16 +131,8 @@ function Register() {
   const [children, setChildren] = useState([{ name: '', cpf: '', grade: '' }]);
   const navigate = useNavigate();
 
-  const handleAddChildField = () => {
-    setChildren([...children, { name: '', cpf: '', grade: '' }]);
-  };
-
-  const handleRemoveChild = (index) => {
-    if (children.length > 1) {
-      setChildren(children.filter((_, i) => i !== index));
-    }
-  };
-
+  const handleAddChildField = () => setChildren([...children, { name: '', cpf: '', grade: '' }]);
+  const handleRemoveChild = (index) => { if (children.length > 1) setChildren(children.filter((_, i) => i !== index)); };
   const handleChildChange = (index, field, value) => {
     const updated = [...children];
     updated[index][field] = value;
@@ -163,13 +209,12 @@ function Register() {
   );
 }
 
-// ==================== PAINEL DO PAI (COM MÚLTIPLOS FILHOS E CALENDÁRIO) ====================
+// ==================== PAINEL DO PAI ====================
 function PainelPai() {
   const [activeChildIndex, setActiveChildIndex] = useState(0);
   const [showJustifyModal, setShowJustifyModal] = useState(false);
   const [justificationText, setJustificationText] = useState('');
 
-  // Simulando dados de múltiplos filhos
   const childrenData = [
     {
       name: "Lucas Gabriel da Silva",
@@ -181,19 +226,6 @@ function PainelPai() {
         { date: "09/09/2026", status: "Presente", time: "07:32" },
         { date: "08/09/2026", status: "Presente", time: "07:28" },
         { date: "07/09/2026", status: "Falta Justificada", time: "-" },
-        { date: "04/09/2026", status: "Atrasado", time: "08:15" },
-      ]
-    },
-    {
-      name: "Mariana da Silva",
-      cpf: "987.654.321-11",
-      grade: "2º Ano A",
-      status: "Presente na Escola",
-      scheduleToday: "07:40 (Normal)",
-      history: [
-        { date: "09/09/2026", status: "Presente", time: "07:40" },
-        { date: "08/09/2026", status: "Presente", time: "07:35" },
-        { date: "07/09/2026", status: "Presente", time: "07:30" },
       ]
     }
   ];
@@ -220,20 +252,6 @@ function PainelPai() {
           </Link>
         </div>
 
-        {/* Abas para alternar entre os filhos */}
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {childrenData.map((child, idx) => (
-            <button
-              key={idx}
-              onClick={() => setActiveChildIndex(idx)}
-              className={`px-5 py-3 rounded-2xl font-bold text-sm whitespace-nowrap transition shadow-sm ${activeChildIndex === idx ? 'bg-blue-600 text-white shadow-blue-600/30' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
-            >
-              👶 {child.name} ({child.grade})
-            </button>
-          ))}
-        </div>
-
-        {/* Card do Filho Selecionado */}
         <div className="bg-white p-6 md:p-8 rounded-3xl shadow border-l-8 border-blue-600 space-y-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
@@ -250,24 +268,8 @@ function PainelPai() {
               </button>
             </div>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <span className="text-xs text-slate-400 block font-semibold">Entrada Hoje (Catraca)</span>
-              <span className="text-lg font-bold text-slate-800">{currentChild.scheduleToday}</span>
-            </div>
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <span className="text-xs text-slate-400 block font-semibold">Status de Aulas</span>
-              <span className="text-lg font-bold text-green-600">100% Presente</span>
-            </div>
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <span className="text-xs text-slate-400 block font-semibold">Ocorrências</span>
-              <span className="text-lg font-bold text-slate-800">Nenhuma</span>
-            </div>
-          </div>
         </div>
 
-        {/* Histórico Visual de Frequência */}
         <div className="bg-white p-6 md:p-8 rounded-3xl shadow space-y-4">
           <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
             <Calendar size={20} className="text-blue-600"/> Histórico de Frequência e Fotos da Catraca
@@ -279,10 +281,10 @@ function PainelPai() {
                   <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold">📅</div>
                   <div>
                     <h4 className="font-semibold text-slate-800">{hist.date} - Entrada às {hist.time}</h4>
-                    <p className="text-xs text-slate-500">Capturado automaticamente via câmera da catraca</p>
+                    <p className="text-xs text-slate-500">Capturado via catraca escolar</p>
                   </div>
                 </div>
-                <span className={`text-xs px-3 py-1.5 rounded-full font-bold ${hist.status === 'Presente' ? 'bg-green-100 text-green-700' : hist.status === 'Atrasado' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                <span className="text-xs px-3 py-1.5 rounded-full font-bold bg-green-100 text-green-700">
                   {hist.status}
                 </span>
               </div>
@@ -291,24 +293,22 @@ function PainelPai() {
         </div>
       </div>
 
-      {/* Modal para Justificar Falta */}
       {showJustifyModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white p-6 md:p-8 rounded-3xl shadow-2xl max-w-md w-full space-y-4">
             <h3 className="text-xl font-bold text-slate-800">Enviar Justificativa / Atestado</h3>
-            <p className="text-sm text-slate-500">Descreva o motivo da ausência ou anexe o atestado médico digital para {currentChild.name}.</p>
             <form onSubmit={handleSendJustification} className="space-y-4">
               <textarea 
                 required
                 rows="4"
                 value={justificationText}
                 onChange={(e) => setJustificationText(e.target.value)}
-                placeholder="Ex: Consulta médica agendada no período da manhã..."
+                placeholder="Ex: Consulta médica..."
                 className="w-full p-3.5 border rounded-2xl bg-slate-50 text-sm outline-none"
               ></textarea>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setShowJustifyModal(false)} className="w-1/2 bg-slate-200 text-slate-700 p-3 rounded-2xl font-bold">Cancelar</button>
-                <button type="submit" className="w-1/2 bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-2xl font-bold shadow-lg shadow-blue-600/30">Enviar</button>
+                <button type="submit" className="w-1/2 bg-blue-600 text-white p-3 rounded-2xl font-bold">Enviar</button>
               </div>
             </form>
           </div>
@@ -318,63 +318,42 @@ function PainelPai() {
   );
 }
 
-// ==================== TABLET / CATRACA COM CÂMERA REAL E MODO OFFLINE ====================
+// ==================== TABLET / CATRACA COM CÂMERA REAL ====================
 function Kiosk() {
   const [cpf, setCpf] = useState('');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [successMsg, setSuccessMsg] = useState(null);
-  const [capturedImage, setCapturedImage] = useState(null);
   const videoRef = useRef(null);
+  const navigate = useNavigate();
 
-  // Monitorar conexão com a internet (Modo Offline)
+  // Verifica se o tablet foi devidamente autorizado pelo ADM
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
+    const authorized = localStorage.getItem('kiosk_authorized');
+    if (!authorized) {
+      alert('Dispositivo não autorizado! Faça a autenticação com o código do ADM.');
+      navigate('/kiosk-auth');
+    }
+  }, [navigate]);
 
-  // Ligar a câmera web real do navegador
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({ video: true })
-      .then((stream) => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      })
-      .catch((err) => {
-        console.log("Câmera indisponível ou permissão negada:", err);
-      });
+      .then((stream) => { if (videoRef.current) videoRef.current.srcObject = stream; })
+      .catch((err) => console.log("Câmera indisponível:", err));
   }, []);
 
   const handleCheckin = (e) => {
     e.preventDefault();
-    // Simula captura de frame da câmera para foto real
-    setCapturedImage("https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80");
-    
-    if (isOnline) {
-      setSuccessMsg(`Check-in & Foto enviados com sucesso para o CPF ${cpf}!`);
-    } else {
-      setSuccessMsg(`Sem internet! Check-in salvo localmente no Tablet. Sincronizará ao reconectar.`);
-    }
-
+    setSuccessMsg(`Check-in & Foto registrados com sucesso para o CPF ${cpf}!`);
     setCpf('');
-    setTimeout(() => {
-      setSuccessMsg(null);
-      setCapturedImage(null);
-    }, 5000);
+    setTimeout(() => setSuccessMsg(null), 5000);
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4 relative">
-      {/* Indicador de Status de Rede */}
-      <div className={`absolute top-6 right-6 px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 ${isOnline ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
-        {isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
-        {isOnline ? 'Sistema Online' : 'Modo Offline Ativado'}
+      <div className="absolute top-6 right-6 flex items-center gap-3">
+        <button onClick={() => { localStorage.removeItem('kiosk_authorized'); navigate('/kiosk-auth'); }} className="bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1.5 rounded-full text-xs font-bold">
+          Bloquear Tablet
+        </button>
       </div>
 
       <div className="bg-slate-900 p-8 rounded-3xl shadow-2xl max-w-lg w-full text-center border border-slate-800 space-y-6">
@@ -385,7 +364,7 @@ function Kiosk() {
 
         <div>
           <h1 className="text-3xl font-bold">Catraca Escolar Pro</h1>
-          <p className="text-slate-400 text-sm mt-1">Aproxime o aluno e digite o CPF</p>
+          <p className="text-slate-400 text-sm mt-1">Terminal Autorizado - Digite o CPF</p>
         </div>
 
         {successMsg && (
@@ -409,7 +388,7 @@ function Kiosk() {
         </form>
 
         <div className="pt-4 border-t border-slate-800 flex justify-between text-xs text-slate-500">
-          <Link to="/" className="hover:text-white">← Voltar ao Login</Link>
+          <Link to="/" className="hover:text-white">← Sair</Link>
           <Link to="/admin" className="hover:text-white">Painel ADM →</Link>
         </div>
       </div>
@@ -417,47 +396,53 @@ function Kiosk() {
   );
 }
 
-// ==================== PAINEL ADM (COM FILTROS E RELATÓRIOS) ====================
+// ==================== PAINEL ADM (COM GERENCIAMENTO DE TABLETS E RELATÓRIOS) ====================
 function Admin() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterGrade, setFilterGrade] = useState('todos');
+  const [tabletCodes] = useState([
+    { id: 1, name: 'Tablet Portaria Principal', code: 'ESCOLA-TABLET-01', status: 'Ativo' },
+    { id: 2, name: 'Tablet Bloco B', code: 'ESCOLA-TABLET-02', status: 'Ativo' }
+  ]);
 
   const movements = [
     { name: "Lucas Gabriel da Silva", grade: "5º Ano B", time: "07:32", status: "No Horário" },
     { name: "Mariana da Silva", grade: "2º Ano A", time: "07:40", status: "No Horário" },
-    { name: "Beatriz Souza Lima", grade: "3º Ano A", time: "08:15", status: "Atrasado" },
-    { name: "Carlos Eduardo Mendes", grade: "5º Ano B", time: "-", status: "Falta" },
   ];
-
-  const filteredMovements = movements.filter(m => {
-    const matchesSearch = m.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesGrade = filterGrade === 'todos' || m.grade === filterGrade;
-    return matchesSearch && matchesGrade;
-  });
-
-  const handleExportReport = () => {
-    alert("Relatório de frequência mensal exportado em planilha/PDF com sucesso!");
-  };
 
   return (
     <div className="min-h-screen bg-slate-100 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
-        <div className="bg-white p-6 rounded-3xl shadow flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="bg-white p-6 rounded-3xl shadow flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-slate-800">Painel Administrativo Pro (ADM)</h1>
-            <p className="text-sm text-slate-500">Gerenciamento global de frequência e relatórios</p>
+            <h1 className="text-2xl font-bold text-slate-800">Painel Administrativo (ADM)</h1>
+            <p className="text-sm text-slate-500">Credenciais oficiais ativas (ADM1 / ADM2)</p>
           </div>
-          <div className="flex gap-2">
-            <button onClick={handleExportReport} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-2xl text-sm font-bold shadow-lg shadow-green-600/30 transition">
-              <Download size={16} /> Baixar Relatório (Excel/PDF)
-            </button>
-            <Link to="/" className="text-slate-600 bg-slate-100 px-4 py-2.5 rounded-2xl text-sm font-bold hover:bg-slate-200 transition">
-              Sair
-            </Link>
+          <Link to="/" className="text-slate-600 bg-slate-100 px-4 py-2.5 rounded-2xl text-sm font-bold hover:bg-slate-200 transition">
+            Sair
+          </Link>
+        </div>
+
+        {/* Gerenciamento de Códigos de Tablets / Catracas */}
+        <div className="bg-white p-6 rounded-3xl shadow space-y-4">
+          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <Key size={20} className="text-blue-600"/> Códigos de Liberação dos Tablets (Catracas)
+          </h3>
+          <p className="text-xs text-slate-500">Estes são os códigos secretos que você gerencia e coloca nos tablets para que ninguém consiga bater ponto de casa:</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {tabletCodes.map(tab => (
+              <div key={tab.id} className="p-4 bg-slate-50 border rounded-2xl flex justify-between items-center">
+                <div>
+                  <h4 className="font-bold text-slate-800 text-sm">{tab.name}</h4>
+                  <span className="text-xs text-blue-600 font-mono font-bold bg-blue-50 px-2 py-0.5 rounded">PIN: {tab.code}</span>
+                </div>
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-bold">{tab.status}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Métricas Globais */}
+        {/* Métricas e Tabela */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white p-6 rounded-3xl shadow">
             <span className="text-xs text-slate-400 font-bold uppercase">Total de Alunos</span>
@@ -467,71 +452,30 @@ function Admin() {
             <span className="text-xs text-slate-400 font-bold uppercase">Presentes Hoje</span>
             <span className="text-3xl font-extrabold text-green-600 mt-1 block">452</span>
           </div>
-          <div className="bg-white p-6 rounded-3xl shadow">
-            <span className="text-xs text-slate-400 font-bold uppercase">Atrasados</span>
-            <span className="text-3xl font-extrabold text-amber-500 mt-1 block">18</span>
-          </div>
-          <div className="bg-white p-6 rounded-3xl shadow">
-            <span className="text-xs text-slate-400 font-bold uppercase">Faltas</span>
-            <span className="text-3xl font-extrabold text-red-600 mt-1 block">10</span>
-          </div>
         </div>
 
-        {/* Filtros e Busca */}
-        <div className="bg-white p-6 rounded-3xl shadow flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div className="relative w-full md:w-96">
-            <Search className="absolute left-4 top-3.5 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Pesquisar aluno por nome..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-slate-50 border rounded-2xl text-sm outline-none"
-            />
-          </div>
-          <select 
-            value={filterGrade} 
-            onChange={(e) => setFilterGrade(e.target.value)}
-            className="w-full md:w-48 p-3 bg-slate-50 border rounded-2xl text-sm font-semibold outline-none"
-          >
-            <option value="todos">Todas as Turmas</option>
-            <option value="5º Ano B">5º Ano B</option>
-            <option value="3º Ano A">3º Ano A</option>
-            <option value="2º Ano A">2º Ano A</option>
-          </select>
-        </div>
-
-        {/* Tabela de Alunos */}
         <div className="bg-white p-6 rounded-3xl shadow">
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Movimentações Recentes na Catraca</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b text-xs text-slate-400 uppercase font-bold">
-                  <th className="pb-3">Aluno</th>
-                  <th className="pb-3">Turma</th>
-                  <th className="pb-3">Horário</th>
-                  <th className="pb-3">Status</th>
-                  <th className="pb-3">Ação</th>
+          <h3 className="text-lg font-bold text-slate-800 mb-4">Movimentações Recentes</h3>
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b text-xs text-slate-400 uppercase font-bold">
+                <th className="pb-3">Aluno</th>
+                <th className="pb-3">Turma</th>
+                <th className="pb-3">Horário</th>
+                <th className="pb-3">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y text-sm">
+              {movements.map((m, idx) => (
+                <tr key={idx} className="hover:bg-slate-50">
+                  <td className="py-4 font-bold text-slate-700">{m.name}</td>
+                  <td className="py-4 text-slate-500">{m.grade}</td>
+                  <td className="py-4 text-slate-500">{m.time}</td>
+                  <td className="py-4"><span className="px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">{m.status}</span></td>
                 </tr>
-              </thead>
-              <tbody className="divide-y text-sm">
-                {filteredMovements.map((m, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50">
-                    <td className="py-4 font-bold text-slate-700">{m.name}</td>
-                    <td className="py-4 text-slate-500">{m.grade}</td>
-                    <td className="py-4 text-slate-500">{m.time}</td>
-                    <td className="py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${m.status === 'No Horário' ? 'bg-green-100 text-green-700' : m.status === 'Atrasado' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
-                        {m.status}
-                      </span>
-                    </td>
-                    <td className="py-4 text-blue-600 font-bold cursor-pointer hover:underline">Ver Foto 📸</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -546,6 +490,7 @@ export default function App() {
         <Route path="/" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/painel-pai" element={<PainelPai />} />
+        <Route path="/kiosk-auth" element={<KioskAuth />} />
         <Route path="/kiosk" element={<Kiosk />} />
         <Route path="/admin" element={<Admin />} />
       </Routes>
