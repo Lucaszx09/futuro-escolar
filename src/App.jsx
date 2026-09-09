@@ -3,25 +3,33 @@ import React, { useState, useEffect, useRef } from 'react';
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('login');
   
-  // Estados de autenticação e dados
+  // Banco de dados simulado no estado global da aplicação
+  const [users, setUsers] = useState([
+    { name: 'Administrador', email: 'admin.escola@gmail.com', role: 'admin' }
+  ]);
+  const [students, setStudents] = useState([]); // { parentEmail, name, cpf, grade, time }
+  const [checkins, setCheckins] = useState([]); // { cpf, studentName, time, date, photo }
+
+  // Estados de inputs
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Cadastro de Usuário
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
 
-  // Lista de filhos vinculados ao responsável
-  const [myStudents, setMyStudents] = useState([]);
+  // Cadastro de Aluno (Filho)
   const [studentName, setStudentName] = useState('');
   const [studentCpf, setStudentCpf] = useState('');
   const [studentGrade, setStudentGrade] = useState('');
   const [studentTime, setStudentTime] = useState('');
 
-  // Catraca
+  // Catraca / Kiosk
   const [kioskCpf, setKioskCpf] = useState('');
   const [kioskMsg, setKioskMsg] = useState(null);
-  const [checkins, setCheckins] = useState([]);
+  const [capturedPhoto, setCapturedPhoto] = useState(null);
   const videoRef = useRef(null);
 
   useEffect(() => {
@@ -34,31 +42,39 @@ export default function App() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    // Validação do Admin com o e-mail e senha específicos
     if (email === 'admin.escola@gmail.com' && password === 'ADM1') {
+      const adminUser = { name: 'Administrador', email, role: 'admin' };
+      setCurrentUser(adminUser);
       setCurrentScreen('admin');
-    } else if (email === 'admin.escola@gmail.com' && password !== 'ADM1') {
-      alert('Senha incorreta para o administrador!');
     } else {
-      setCurrentScreen('painel-pai');
+      const foundUser = users.find(u => u.email === email);
+      const userObj = foundUser || { name: 'Responsável', email, role: 'pai' };
+      setCurrentUser(userObj);
+      setCurrentScreen(userObj.role === 'admin' ? 'admin' : 'painel-pai');
     }
   };
 
   const handleRegisterUser = (e) => {
     e.preventDefault();
+    const newUser = { name: regName, email: regEmail, role: 'pai' };
+    setUsers([...users, newUser]);
     alert('Conta criada com sucesso! Faça login.');
     setCurrentScreen('login');
+    setRegName('');
+    setRegEmail('');
+    setRegPassword('');
   };
 
   const handleAddStudent = (e) => {
     e.preventDefault();
     const newStudent = {
+      parentEmail: currentUser.email,
       name: studentName,
       cpf: studentCpf,
       grade: studentGrade,
       time: studentTime
     };
-    setMyStudents([...myStudents, newStudent]);
+    setStudents([...students, newStudent]);
     alert('Filho cadastrado com sucesso!');
     setStudentName('');
     setStudentCpf('');
@@ -66,17 +82,52 @@ export default function App() {
     setStudentTime('');
   };
 
+  // Função da Catraca tirando foto real e vinculando ao nome do aluno pelo CPF
   const handleKioskCheckin = (e) => {
     e.preventDefault();
+    
+    // Captura a foto do vídeo da câmera
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 240;
+    const ctx = canvas.getContext('2d');
+    if (videoRef.current) {
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    }
+    const photoDataUrl = canvas.toDataURL('image/jpeg');
+    setCapturedPhoto(photoDataUrl);
+
+    // Procura se o CPF está cadastrado em algum aluno para puxar o nome correto
+    const alunoEncontrado = students.find(s => s.cpf === kioskCpf);
+    const nomeAluno = alunoEncontrado ? alunoEncontrado.name : 'Aluno não identificado';
+
     const now = new Date();
     const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const date = now.toLocaleDateString();
-    
-    const newCheckin = { cpf: kioskCpf, time, date };
+
+    const newCheckin = {
+      cpf: kioskCpf,
+      studentName: nomeAluno,
+      time,
+      date,
+      photo: photoDataUrl
+    };
+
     setCheckins([newCheckin, ...checkins]);
-    setKioskMsg(`✅ Presença confirmada para o CPF: ${kioskCpf} às ${time}!`);
+    setKioskMsg(`✅ ${nomeAluno} (${kioskCpf}) - Presença confirmada às ${time}!`);
     setKioskCpf('');
-    setTimeout(() => setKioskMsg(null), 4000);
+    setTimeout(() => setKioskMsg(null), 5000);
+  };
+
+  // Admin altera a permissão de um usuário para Admin ou Pai
+  const toggleUserRole = (userEmail) => {
+    setUsers(users.map(u => {
+      if (u.email === userEmail) {
+        const newRole = u.role === 'admin' ? 'pai' : 'admin';
+        return { ...u, role: newRole };
+      }
+      return u;
+    }));
   };
 
   return (
@@ -97,7 +148,7 @@ export default function App() {
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#475569', marginBottom: '6px' }}>E-mail</label>
                 <input 
                   type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                  placeholder="ex: admin.escola@gmail.com" 
+                  placeholder="admin.escola@gmail.com" 
                   style={{ width: '100%', padding: '12px 16px', border: '1px solid #cbd5e1', borderRadius: '14px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }} 
                 />
               </div>
@@ -170,7 +221,7 @@ export default function App() {
                 style={{ width: '100%', padding: '14px', textAlign: 'center', fontSize: '16px', background: '#0f172a', border: '1px solid #334155', color: 'white', borderRadius: '12px', outline: 'none', boxSizing: 'border-box' }}
               />
               <button type="submit" style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '14px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                Registrar Presença 📸
+                Registrar Presença & Foto 📸
               </button>
             </form>
 
@@ -179,29 +230,51 @@ export default function App() {
         </div>
       )}
 
-      {/* PAINEL DO ADMINISTRADOR */}
+      {/* PAINEL DO ADMINISTRADOR (VÊ TUDO E ALTERA PERMISSÕES) */}
       {currentScreen === 'admin' && (
-        <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
+        <div style={{ padding: '24px', maxWidth: '900px', margin: '0 auto' }}>
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
             <div>
-              <h1 style={{ fontSize: '20px', fontWeight: 'bold' }}>Painel do Administrador</h1>
-              <p style={{ fontSize: '12px', color: '#64748b' }}>Visão geral do sistema escolar</p>
+              <h1 style={{ fontSize: '20px', fontWeight: 'bold' }}>Painel do Administrador (Geral)</h1>
+              <p style={{ fontSize: '12px', color: '#64748b' }}>Controle completo de usuários, alunos e acessos</p>
             </div>
-            <button onClick={() => setCurrentScreen('login')} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '10px 16px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Sair</button>
+            <button onClick={() => { setCurrentUser(null); setCurrentScreen('login'); }} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '10px 16px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Sair</button>
           </div>
 
+          {/* LISTA DE USUÁRIOS CADASTRADOS E CONTROLE DE ADMIN */}
+          <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>👥 Contas Criadas no App</h3>
+            {users.map((u, idx) => (
+              <div key={idx} style={{ padding: '12px', background: '#f8fafc', borderRadius: '12px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0' }}>
+                <div>
+                  <strong style={{ fontSize: '14px' }}>{u.name}</strong>
+                  <div style={{ fontSize: '12px', color: '#64748b' }}>E-mail: {u.email} | Cargo: <span style={{ fontWeight: 'bold', color: u.role === 'admin' ? '#059669' : '#2563eb' }}>{u.role.toUpperCase()}</span></div>
+                </div>
+                {u.email !== 'admin.escola@gmail.com' && (
+                  <button onClick={() => toggleUserRole(u.email)} style={{ background: u.role === 'admin' ? '#fef3c7' : '#dbeafe', color: u.role === 'admin' ? '#d97706' : '#1d4ed8', border: 'none', padding: '8px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>
+                    {u.role === 'admin' ? 'Remover Admin' : 'Tornar Admin'}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* HISTÓRICO COMPLETO DA CATRACA PARA O ADMIN */}
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>📋 Acessos Registrados na Catraca</h3>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>📋 Todos os Registros da Catraca</h3>
             {checkins.length === 0 ? (
-              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum acesso registrado ainda.</p>
+              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum acesso registrado na catraca ainda.</p>
             ) : (
               checkins.map((item, idx) => (
-                <div key={idx} style={{ padding: '12px', background: '#f8fafc', borderRadius: '12px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0' }}>
-                  <div>
-                    <strong style={{ fontSize: '14px' }}>CPF: {item.cpf}</strong>
-                    <div style={{ fontSize: '12px', color: '#64748b' }}>Entrada em {item.date} às {item.time}</div>
+                <div key={idx} style={{ padding: '14px', background: '#f8fafc', borderRadius: '12px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {item.photo && <img src={item.photo} alt="Foto Catraca" style={{ width: '50px', height: '50px', borderRadius: '8px', objectFit: 'cover' }} />}
+                    <div>
+                      <strong style={{ fontSize: '14px', color: '#0f172a' }}>{item.studentName}</strong>
+                      <div style={{ fontSize: '12px', color: '#64748b' }}>CPF: {item.cpf} | Data: {item.date} às {item.time}</div>
+                    </div>
                   </div>
-                  <span style={{ background: '#d1fae5', color: '#065f46', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>Presente</span>
+                  <span style={{ background: '#d1fae5', color: '#065f46', padding: '6px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>Presente 🟢</span>
                 </div>
               ))
             )}
@@ -209,18 +282,18 @@ export default function App() {
         </div>
       )}
 
-      {/* PAINEL DO PAI / RESPONSÁVEL COM CADASTRO DE FILHO */}
+      {/* PAINEL DO PAI (VÊ APENAS OS FILHOS QUE ELE CADASTROU E OS REGISTROS DELES) */}
       {currentScreen === 'painel-pai' && (
         <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
             <div>
               <h1 style={{ fontSize: '20px', fontWeight: 'bold' }}>Painel do Responsável</h1>
-              <p style={{ fontSize: '12px', color: '#64748b' }}>Cadastre e acompanhe seus filhos</p>
+              <p style={{ fontSize: '12px', color: '#64748b' }}>Bem-vindo, {currentUser?.name}</p>
             </div>
-            <button onClick={() => setCurrentScreen('login')} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '10px 16px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Sair</button>
+            <button onClick={() => { setCurrentUser(null); setCurrentScreen('login'); }} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '10px 16px', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px' }}>Sair</button>
           </div>
 
-          {/* FORMULÁRIO DE CADASTRAR FILHO */}
+          {/* CADASTRAR FILHO */}
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px', color: '#0f172a' }}>👶 Cadastrar Novo Filho</h3>
             <form onSubmit={handleAddStudent} style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
@@ -248,13 +321,13 @@ export default function App() {
             </form>
           </div>
 
-          {/* LISTA DOS FILHOS CADASTRADOS */}
+          {/* LISTA DOS FILHOS DESTE RESPONSÁVEL */}
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '24px' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px', color: '#0f172a' }}>👦 Meus Filhos Cadastrados</h3>
-            {myStudents.length === 0 ? (
-              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum filho cadastrado ainda.</p>
+            {students.filter(s => s.parentEmail === currentUser?.email).length === 0 ? (
+              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum filho cadastrado por você ainda.</p>
             ) : (
-              myStudents.map((child, idx) => (
+              students.filter(s => s.parentEmail === currentUser?.email).map((child, idx) => (
                 <div key={idx} style={{ padding: '14px', background: '#f8fafc', borderRadius: '12px', marginBottom: '8px', border: '1px solid #e2e8f0' }}>
                   <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#0f172a' }}>{child.name}</div>
                   <div style={{ fontSize: '12px', color: '#64748b', marginTop: '4px' }}>
@@ -265,16 +338,26 @@ export default function App() {
             )}
           </div>
 
+          {/* HISTÓRICO EXCLUSIVO APENAS DOS FILHOS DESTE RESPONSÁVEL */}
           <div style={{ background: 'white', padding: '24px', borderRadius: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>🕒 Histórico de Acessos na Catraca</h3>
-            {checkins.length === 0 ? (
-              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum registro na catraca ainda.</p>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '16px' }}>🕒 Histórico de Acessos dos Meus Filhos</h3>
+            {checkins.filter(item => {
+              const meusCpfs = students.filter(s => s.parentEmail === currentUser?.email).map(s => s.cpf);
+              return meusCpfs.includes(item.cpf);
+            }).length === 0 ? (
+              <p style={{ fontSize: '13px', color: '#94a3b8' }}>Nenhum registro de acesso para os seus filhos ainda.</p>
             ) : (
-              checkins.map((item, idx) => (
-                <div key={idx} style={{ padding: '14px', background: '#f8fafc', borderRadius: '12px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0' }}>
-                  <div>
-                    <div style={{ fontWeight: 'bold', fontSize: '14px' }}>CPF: {item.cpf}</div>
-                    <div style={{ fontSize: '12px', color: '#64748b' }}>Data: {item.date} às {item.time}</div>
+              checkins.filter(item => {
+                const meusCpfs = students.filter(s => s.parentEmail === currentUser?.email).map(s => s.cpf);
+                return meusCpfs.includes(item.cpf);
+              }).map((item, idx) => (
+                <div key={idx} style={{ padding: '14px', background: '#f8fafc', borderRadius: '12px', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    {item.photo && <img src={item.photo} alt="Foto Catraca" style={{ width: '50px', height: '50px', borderRadius: '8px', objectFit: 'cover' }} />}
+                    <div>
+                      <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#0f172a' }}>{item.studentName}</div>
+                      <div style={{ fontSize: '12px', color: '#64748b' }}>CPF: {item.cpf} | {item.date} às {item.time}</div>
+                    </div>
                   </div>
                   <span style={{ background: '#d1fae5', color: '#065f46', padding: '6px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 'bold' }}>Presente 🟢</span>
                 </div>
