@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { Shield, Camera, Lock, ArrowRight, LogOut, Calendar, Smartphone } from 'lucide-react';
@@ -85,7 +84,6 @@ function Kiosk() {
   const handleCheckin = async (e) => {
     e.preventDefault();
 
-    // Tira a foto da câmera do tablet em tempo real
     const canvas = document.createElement('canvas');
     canvas.width = 320;
     canvas.height = 240;
@@ -98,7 +96,6 @@ function Kiosk() {
       formData.append('photo', blob, 'catraca.jpg');
 
       try {
-        // Envia de verdade para o servidor Node.js que criamos
         const response = await fetch('http://localhost:5000/api/checkin', {
           method: 'POST',
           body: formData
@@ -161,7 +158,6 @@ function PainelPai() {
   const [history, setHistory] = useState([]);
 
   useEffect(() => {
-    // Busca do banco de dados real os registros da catraca
     fetch('http://localhost:5000/api/checkins')
       .then(res => res.json())
       .then(data => setHistory(data))
